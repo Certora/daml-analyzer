@@ -38,24 +38,51 @@ $interactions
       "packageId": ${q(d.packageId)}
     }"""
 
-  private def interactionJson(i: CrossPackageInteraction): String = s"""    {
+  private def interactionJson(i: CrossPackageInteraction): String = {
+    val callerCommon = List(
+      s""""package": ${q(i.caller.pkg)}""",
+      s""""version": ${q(i.caller.version)}""",
+      s""""packageId": ${q(i.caller.packageId)}""",
+      s""""module": ${q(i.caller.module)}"""
+    )
+    val callerOptional =
+      i.caller.template.map(t => s""""template": ${q(t)}""").toList
+    val callerFields = (callerCommon ++ callerOptional).mkString(",\n        ")
+
+    val targetCommon = List(
+      s""""package": ${q(i.target.pkg)}""",
+      s""""version": ${q(i.target.version)}""",
+      s""""packageId": ${q(i.target.packageId)}""",
+      s""""module": ${q(i.target.module)}"""
+    )
+    val targetOptional =
+      i.target.template.map(t  => s""""template": ${q(t)}""").toList ++
+      i.target.interface.map(t => s""""interface": ${q(t)}""").toList ++
+      i.target.choice.map(c    => s""""choice": ${q(c)}""").toList ++
+      i.target.consuming.map(c => s""""consuming": $c""").toList
+    val targetFields = (targetCommon ++ targetOptional).mkString(",\n        ")
+
+    val sourceJson = i.source.map { s =>
+      s""""source": {
+        "file": ${q(s.file)},
+        "startLine": ${s.startLine},
+        "startColumn": ${s.startColumn},
+        "endLine": ${s.endLine},
+        "endColumn": ${s.endColumn}
+      },
+      """
+    }.getOrElse("")
+
+    s"""    {
       "type": ${q(i.interactionType)},
-      "caller": {
-        "package": ${q(i.caller.pkg)},
-        "version": ${q(i.caller.version)},
-        "packageId": ${q(i.caller.packageId)},
-        "module": ${q(i.caller.module)}
+      $sourceJson"caller": {
+        $callerFields
       },
       "target": {
-        "package": ${q(i.target.pkg)},
-        "version": ${q(i.target.version)},
-        "packageId": ${q(i.target.packageId)},
-        "module": ${q(i.target.module)},
-        "template": ${q(i.target.template)},
-        "choice": ${q(i.target.choice)},
-        "consuming": ${i.target.consuming}
+        $targetFields
       }
     }"""
+  }
 
   private def q(s: Any): String = "\"" + s.toString + "\""
 }
