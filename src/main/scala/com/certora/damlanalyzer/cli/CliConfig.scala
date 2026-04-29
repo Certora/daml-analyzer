@@ -36,7 +36,7 @@ object CliConfig {
       opt[File]('o', "output")
         .valueName("<path>")
         .action((f, c) => c.copy(output = Some(f)))
-        .text("Output file, default: stdout"),
+        .text("Output file, default is sent to stdout"),
 
       help('h', "help").text("Print this usage message")
     )
