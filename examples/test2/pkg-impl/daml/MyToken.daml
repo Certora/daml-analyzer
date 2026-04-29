@@ -1,0 +1,26 @@
+module MyToken where
+
+import IToken
+
+template MyToken
+  with
+    owner: Party
+    amount: Int
+  where
+    signatory owner
+
+    interface instance IToken for MyToken where
+      view = IView with owner = owner
+      getOwner = owner
+
+template Wallet
+  with
+    operator: Party
+    tokenCid: ContractId IToken
+  where
+    signatory operator
+
+    choice BurnToken : ()
+      controller operator
+      do
+        exercise tokenCid Burn

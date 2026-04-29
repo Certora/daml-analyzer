@@ -1,0 +1,15 @@
+module IToken where
+
+interface IToken where
+  viewtype IView
+
+  getOwner : Party
+
+  choice Burn : ()
+    controller getOwner this
+    do
+      pure ()
+
+data IView = IView
+  with
+    owner : Party
