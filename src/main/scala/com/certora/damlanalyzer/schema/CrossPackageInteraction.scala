@@ -18,20 +18,22 @@ case class SourceLocation(
 )
 
 case class Caller(
-  pkg: String,
-  version: String,
+  pkg:       String,
+  version:   String,
   packageId: String,
-  module: String
+  module:    String,
+  template:  Option[String] = None  // we set this for ImplementsInterface findings, wip
 )
 
 case class Target(
-  pkg: String,
-  version: String,
+  pkg:       String,
+  version:   String,
   packageId: String,
-  module: String,
-  template: String,
-  choice: String,
-  consuming: Boolean
+  module:    String,
+  template:  Option[String],
+  interface: Option[String],
+  choice:    Option[String],
+  consuming: Option[Boolean]
 )
 
 case class CrossPackageInteraction(
