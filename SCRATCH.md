@@ -10,7 +10,7 @@ As a result, cross-package interface exercises (e.g. `pkg-impl/Wallet.BurnToken`
 
 We have a test right now that fails for this reason — it asserts the *desired* behavior (an `ExerciseInterface` finding for `Wallet.BurnToken`) with a clear failure message, so once call-graph analysis lands the test will start passing automatically.
 
-Solution: a control-flow analysis will fix this. When we hit a cross-package `EVal`, we can look up the called value's body in the dependency package and traverse it.
+TODO: a control-flow analysis will fix this. When we hit a cross-package `EVal`, we can look up the called value's body in the dependency package and traverse it.
 
 ### Source locations are best-effort
 
@@ -18,4 +18,14 @@ We extract source locations from `Ast.ELocation` wrappers in the AST and show th
 
 For the minimal `pkg-vault` example, the cross-package `exercise` is contained entirely in a synthetic helper that has no `ELocation` wrapping at any level and so the `source` field is omitted on that finding. Real-world Daml code typically has more user-written intermediate code where locations are present, so this gap is more pronounced on minimal test fixtures than on production codebases.
 
-Solution: walk via template/choice structure so each finding inherits the choice's known source line or do call-graph attribution to use the caller's location when the helper has none.
+TODO: walk via template/choice structure so each finding inherits the choice's known source line or do call-graph attribution to use the caller's location when the helper has none.
+
+### `caller.template` is empty for Update-based findings
+
+Update-based findings like Exercise, Create, Fetch, ExerciseByKey, FetchByKey, LookupByKey, etc. leave `caller.template` as `None`. Only `ImplementsInterface` findings, which come from `TemplateAnalyzer`, fill it in.
+
+This is because `ExprWalker` iterates `module.definitions` in a flat way, so every `DValue` body is traversed in the same way.  When it runs into an `Update.Exercise` deep inside a choice body it has no idea which template owned that choice. The `Update.Exercise` AST node itself doesn't carry caller-template info either, it only carries the *target* template id.
+
+The finding still has the correct caller package and module, just not the template name.
+
+TODO: traverse by template/choice structure (template -> choice -> choice body) instead of by module values. It is the same restructuring for location information, but the two are independent. A finding could have a `source` but still no `caller.template` and vice versa.
