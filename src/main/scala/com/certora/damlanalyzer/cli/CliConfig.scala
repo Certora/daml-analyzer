@@ -4,9 +4,9 @@ import scopt.OParser
 import java.io.File
 
 case class CliConfig(
-  darFile: File         = new File("."),
-  format:  String       = "json", // "json" or "dot"
-  output:  Option[File] = None
+    darFile: File = new File("."),
+    format: String = "json", // "json" or "dot"
+    output: Option[File] = None
 )
 
 object CliConfig {
@@ -27,7 +27,8 @@ object CliConfig {
         .valueName("json|dot")
         .validate {
           case "json" | "dot" => Right(())
-          case other          => Left(s"unknown format: $other (expected 'json' or 'dot')")
+          case other          =>
+            Left(s"unknown format: $other (expected 'json' or 'dot')")
         }
         .action((s, c) => c.copy(format = s))
         .text("Output format, default json"),
@@ -37,7 +38,7 @@ object CliConfig {
         .action((f, c) => c.copy(output = Some(f)))
         .text("Output file, default: stdout"),
 
-      help('h', "help").text("Print this usage message"),
+      help('h', "help").text("Print this usage message")
     )
   }
 
