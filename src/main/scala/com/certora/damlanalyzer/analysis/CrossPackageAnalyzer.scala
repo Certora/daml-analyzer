@@ -77,7 +77,7 @@ object CrossPackageAnalyzer {
         name      = mainMeta.name.toString,
         version   = mainMeta.version.toString,
         packageId = mainPkgId.toString,
-        lfVersion = mainPkg.languageVersion.toString
+        lfVersion = mainPkg.languageVersion.pretty
       ),
       dependencies = deps,
       summary      = summaryOf(interactions),
