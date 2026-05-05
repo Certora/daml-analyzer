@@ -1,0 +1,10 @@
+sdk-version: 3.4.11
+name: pkg-registry
+version: 1.0.0
+source: daml
+parties: []
+modules:
+  - Registry
+dependencies:
+  - daml-prim
+  - daml-stdlib

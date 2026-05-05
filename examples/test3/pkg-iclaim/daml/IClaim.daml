@@ -1,0 +1,12 @@
+module IClaim where
+
+data IClaimView = IClaimView with
+  holder: Party
+
+interface IClaim where
+  viewtype IClaimView
+  getHolder : Party
+
+  choice Settle : ()
+    controller getHolder this
+    do return ()

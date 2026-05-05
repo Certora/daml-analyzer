@@ -1,0 +1,13 @@
+sdk-version: 3.4.11
+name: pkg-app
+version: 1.0.0
+source: daml
+parties: []
+modules:
+  - App
+dependencies:
+  - daml-prim
+  - daml-stdlib
+data-dependencies:
+  - ../pkg-registry/.daml/dist/pkg-registry-1.0.0.dar
+  - ../pkg-iclaim/.daml/dist/pkg-iclaim-1.0.0.dar

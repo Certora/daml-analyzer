@@ -1,0 +1,62 @@
+module App where
+
+import Registry
+import IClaim
+
+template MyToken
+  with
+    holder: Party
+    amount: Int
+  where
+    signatory holder
+
+    interface instance IClaim for MyToken where
+      view = IClaimView with holder = holder
+      getHolder = holder
+
+template Workflow
+  with
+    operator: Party
+    issuer: Party
+  where
+    signatory operator
+
+    -- Create
+    choice CreateAsset : ContractId Asset
+      with
+        owner: Party
+        name: Text
+      controller operator
+      do
+        create Asset with issuer; owner; name
+
+    -- Fetch
+    choice FetchByCid : Asset
+      with
+        cid: ContractId Asset
+      controller operator
+      do
+        fetch cid
+
+    -- Simple exercise finding across packages
+    choice TransferAsset : ContractId Asset
+      with
+        cid: ContractId Asset
+        newOwner: Party
+      controller operator
+      do
+        exercise cid UpdateOwner with newOwner
+
+    -- FetchInterface finding.
+    -- Note that we thought this might be like `exercise cid Choice` for interfaces
+    -- which goes through a helper in the interface's package.
+    -- But we saw that FetchInterface actually compiles to Update.UpdateFetchInterface
+    -- so it worked more easily.
+    -- We did a return `()` because IClaim isn't serializable (choice results must be).
+    choice FetchClaim : ()
+      with
+        cid: ContractId IClaim
+      controller operator
+      do
+        _ <- fetch cid
+        return ()

@@ -63,4 +63,48 @@ class AnalyzerTests extends AnyFunSuite {
         "which our current single-package analyzer does not follow. Fix requires call-graph " +
         "analysis across packages. That's WIP.")
   }
+
+  test("test4: pkg-app produces 5 cross-package findings (Create, Fetch, Exercise, FetchInterface, ImplementsInterface)") {
+    val result = loadAndAnalyze("/dars/pkg-app-1.0.0.dar")
+
+    assert(result.analyzedPackage.name == "pkg-app")
+    assert(result.summary.totalInteractions == 5)
+    assert(result.summary.byType == Map(
+      "Create"              -> 1,
+      "Fetch"               -> 1,
+      "Exercise"            -> 1,
+      "FetchInterface"      -> 1,
+      "ImplementsInterface" -> 1,
+    ))
+
+    def findingOf(t: InteractionType): CrossPackageInteraction =
+      result.interactions.find(_.interactionType == t)
+        .getOrElse(fail(s"missing finding of type $t"))
+
+    val exercise = findingOf(InteractionType.Exercise)
+    assert(exercise.target.pkg == "pkg-registry")
+    assert(exercise.target.module == "Registry")
+    assert(exercise.target.template.contains("Asset"))
+    assert(exercise.target.choice.contains("UpdateOwner"))
+    assert(exercise.target.consuming.contains(true))
+
+    val fetch = findingOf(InteractionType.Fetch)
+    assert(fetch.target.pkg == "pkg-registry")
+    assert(fetch.target.template.contains("Asset"))
+    assert(fetch.target.choice.isEmpty)
+
+    val create = findingOf(InteractionType.Create)
+    assert(create.target.pkg == "pkg-registry")
+    assert(create.target.template.contains("Asset"))
+
+    val fetchInterface = findingOf(InteractionType.FetchInterface)
+    assert(fetchInterface.target.pkg == "pkg-iclaim")
+    assert(fetchInterface.target.interface.contains("IClaim"))
+    assert(fetchInterface.target.template.isEmpty)
+
+    val implementsInterface = findingOf(InteractionType.ImplementsInterface)
+    assert(implementsInterface.caller.template.contains("MyToken"))
+    assert(implementsInterface.target.pkg == "pkg-iclaim")
+    assert(implementsInterface.target.interface.contains("IClaim"))
+  }
 }
