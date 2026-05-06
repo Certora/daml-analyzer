@@ -136,9 +136,8 @@ object CrossPackageAnalyzer {
     case _                                               => None
   }
 
-  // consuming  for exercise variants — looked up on the target choice's definition.
-  // note that this only works for template-based exercises
-  // Todo: ExerciseInterface later
+  // consuming for exercise variants — looked up on the target choice's definition.
+  // Templates and interfaces both store choices with a consuming Boolean.
   private def consumingOf(u: Ast.Update, pkgsById: Map[PackageId, Ast.Package]): Option[Boolean] = {
     def lookupTemplate(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
       val qn = tcid.qualifiedName
@@ -149,10 +148,20 @@ object CrossPackageAnalyzer {
         ch  <- tpl.choices.get(choice)
       } yield ch.consuming).getOrElse(false)
     }
+    def lookupInterface(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
+      val qn = tcid.qualifiedName
+      (for {
+        pkg   <- pkgsById.get(tcid.packageId)
+        mod   <- pkg.modules.get(qn.module)
+        iface <- mod.interfaces.get(qn.name)
+        ch    <- iface.choices.get(choice)
+      } yield ch.consuming).getOrElse(false)
+    }
     u match {
-      case Ast.UpdateExercise(tcid, choice, _, _)      => Some(lookupTemplate(tcid, choice))
-      case Ast.UpdateExerciseByKey(tcid, choice, _, _) => Some(lookupTemplate(tcid, choice))
-      case _                                            => None
+      case Ast.UpdateExercise(tcid, choice, _, _)             => Some(lookupTemplate(tcid, choice))
+      case Ast.UpdateExerciseByKey(tcid, choice, _, _)        => Some(lookupTemplate(tcid, choice))
+      case Ast.UpdateExerciseInterface(tcid, choice, _, _, _) => Some(lookupInterface(tcid, choice))
+      case _                                                   => None
     }
   }
 

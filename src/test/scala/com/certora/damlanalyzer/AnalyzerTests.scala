@@ -52,10 +52,16 @@ class AnalyzerTests extends AnyFunSuite {
 
   test("test3: pkg-impl Wallet.BurnToken produces an ExerciseInterface finding (call-graph)") {
     val result = loadAndAnalyze("/dars/pkg-impl-1.0.0.dar")
-    val exerciseInterfaceCount =
-      result.interactions.count(_.interactionType == InteractionType.ExerciseInterface)
-    assert(exerciseInterfaceCount == 1,
-      s"expected 1 ExerciseInterface finding from Wallet.BurnToken, got $exerciseInterfaceCount")
+    val exerciseInterfaces =
+      result.interactions.filter(_.interactionType == InteractionType.ExerciseInterface)
+    assert(exerciseInterfaces.size == 1,
+      s"expected 1 ExerciseInterface finding from Wallet.BurnToken, got ${exerciseInterfaces.size}")
+    val finding = exerciseInterfaces.head
+    assert(finding.target.pkg == "pkg-interface")
+    assert(finding.target.interface.contains("IToken"))
+    assert(finding.target.choice.contains("Burn"))
+    // IToken.Burn is a default `choice` so consuming is true
+    assert(finding.target.consuming.contains(true))
   }
 
   test("test4: pkg-app produces 5 cross-package findings (Create, Fetch, Exercise, FetchInterface, ImplementsInterface)") {
