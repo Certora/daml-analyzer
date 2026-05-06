@@ -37,8 +37,10 @@ object DotReporter {
           case None        => ""
         }
         val label = s"$count× ${key.iType}$consumingNote"
+        // non-consuming is the unusual case (consuming is the default for `choice`),
+        // so highlight non-consuming in red.
         val color =
-          if (key.consuming.contains(true)) "\"#d32f2f\""
+          if (key.consuming.contains(false)) "\"#d32f2f\""
           else "\"#666666\""
         s"""  ${nodeId(key.callerPkg)} -> ${nodeId(key.targetPkg)} [label="$label", color=$color];"""
       }.mkString("\n")

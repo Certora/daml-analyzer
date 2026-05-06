@@ -106,7 +106,7 @@ object CrossPackageAnalyzer {
   }
 
   // The TypeConId that identifies the cross-package target of an Update
-  // (either a template or an interface depending on variant)
+  // either a template or an interface
   private def targetTypeConId(u: Ast.Update): Option[Ref.TypeConId] = u match {
     case Ast.UpdateExercise(tcid, _, _, _)             => Some(tcid)
     case Ast.UpdateExerciseInterface(tcid, _, _, _, _) => Some(tcid)

@@ -4,9 +4,9 @@ import scopt.OParser
 import java.io.File
 
 case class CliConfig(
-    darFile: File = new File("."),
-    format: String = "json", // "json" or "dot"
-    output: Option[File] = None
+    input: File = new File("."),
+    format: String = "both",
+    outputDir: Option[File] = None
 )
 
 object CliConfig {
@@ -18,27 +18,43 @@ object CliConfig {
       programName("daml-analyzer"),
       head("daml-analyzer", "0.1.0"),
 
-      arg[File]("<dar-file>")
+      arg[File]("<dar-file-or-dir>")
         .required()
-        .action((f, c) => c.copy(darFile = f))
-        .text("Path to the .dar file to analyze"),
+        .action((f, c) => c.copy(input = f))
+        .text(
+          "Path to a .dar file, OR a directory of .dar files"
+        ),
 
       opt[String]('f', "format")
-        .valueName("json|dot")
+        .valueName("json|dot|both")
         .validate {
-          case "json" | "dot" => Right(())
-          case other          =>
-            Left(s"unknown format: $other (expected 'json' or 'dot')")
+          case "json" | "dot" | "both" => Right(())
+          case other                   =>
+            Left(s"unknown format: $other (expected 'json', 'dot', or 'both')")
         }
         .action((s, c) => c.copy(format = s))
-        .text("Output format, default json"),
+        .text(
+          "Output format: 'both' (default when -o is set), 'json', or 'dot'. " +
+            "Stdout only allows one of 'json' or 'dot'."
+        ),
 
       opt[File]('o', "output")
-        .valueName("<path>")
-        .action((f, c) => c.copy(output = Some(f)))
-        .text("Output file, default is sent to stdout"),
+        .valueName("<dir>")
+        .action((f, c) => c.copy(outputDir = Some(f)))
+        .text(
+          "Output directory. This generates <name>.json and/or <name>.dot. " +
+            "Required when input is a directory."
+        ),
 
-      help('h', "help").text("Print this usage message")
+      help('h', "help").text("Print this message"),
+
+      checkConfig { c =>
+        if (c.input.isDirectory && c.outputDir.isEmpty)
+          Left("batch mode requires -o <dir>")
+        else if (c.outputDir.isEmpty && c.format == "both")
+          Right(())
+        else Right(())
+      }
     )
   }
 
