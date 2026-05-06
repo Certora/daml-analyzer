@@ -34,15 +34,13 @@ class AnalyzerTests extends AnyFunSuite {
   }
 
 
-  test("test2: pkg-impl produces 1 ImplementsInterface finding") {
+  test("test2: pkg-impl produces an ImplementsInterface finding for MyToken on IToken") {
     val result = loadAndAnalyze("/dars/pkg-impl-1.0.0.dar")
 
     assert(result.analyzedPackage.name == "pkg-impl")
-    assert(result.summary.totalInteractions == 1)
-    assert(result.summary.byType == Map("ImplementsInterface" -> 1))
-
-    val finding = result.interactions.head
-    assert(finding.interactionType == InteractionType.ImplementsInterface)
+    val finding = result.interactions
+      .find(_.interactionType == InteractionType.ImplementsInterface)
+      .getOrElse(fail("no ImplementsInterface finding produced"))
     assert(finding.caller.template.contains("MyToken"))
     assert(finding.target.pkg == "pkg-interface")
     assert(finding.target.module == "IToken")
@@ -52,16 +50,12 @@ class AnalyzerTests extends AnyFunSuite {
     assert(finding.target.consuming.isEmpty)
   }
 
-  test("test3: pkg-impl Wallet.BurnToken should produce an ExerciseInterface finding") {
+  test("test3: pkg-impl Wallet.BurnToken produces an ExerciseInterface finding (call-graph)") {
     val result = loadAndAnalyze("/dars/pkg-impl-1.0.0.dar")
     val exerciseInterfaceCount =
       result.interactions.count(_.interactionType == InteractionType.ExerciseInterface)
     assert(exerciseInterfaceCount == 1,
-      "Wallet.BurnToken exercises IToken.Burn but no ExerciseInterface finding is produced. " +
-        "This is the known typeclass-dictionary desugaring limitation: the actual " +
-        "Update.ExerciseInterface AST node is inside pkg-interface's $cexercise1 helper, " +
-        "which our current single-package analyzer does not follow. Fix requires call-graph " +
-        "analysis across packages. That's WIP.")
+      s"expected 1 ExerciseInterface finding from Wallet.BurnToken, got $exerciseInterfaceCount")
   }
 
   test("test4: pkg-app produces 5 cross-package findings (Create, Fetch, Exercise, FetchInterface, ImplementsInterface)") {

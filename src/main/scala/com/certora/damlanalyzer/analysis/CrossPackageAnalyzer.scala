@@ -13,34 +13,23 @@ object CrossPackageAnalyzer {
     val mainMeta = mainPkg.metadata
     val pkgsById: Map[PackageId, Ast.Package] = dar.all.toMap
 
-    // Each finding has the module and template/interface it came from.
-    // We traverse three types of DValues:
-    //   1. mod.definitions: module level DValues meaning top-level helpers and the
-    //      `$$sc_<Template>_<N>` helpers Daml uses for choice bodies.
-    //   2. mod.templates[*].choices[*].update: template choice bodies.
-    //   3. mod.interfaces[*].choices[*].update: interface choice bodies.
-    // For (1) the owning template is not known (maybe?) so `callerTpl` is None.
+    val walkCtx = WalkCtx(pkgsById = pkgsById)
+
     val findings: List[(String, Option[String], Option[Ref.Location], Ast.Update)] =
       mainPkg.modules.toList.flatMap { case (modName, mod) =>
-        val fromDefs = mod.definitions.values.toList.flatMap {
-          case dv: Ast.GenDValue[_] =>
-            ExprWalker.findInteractions(dv.body.asInstanceOf[Ast.Expr])
-              .map { case (loc, u) => (modName.toString, None, loc, u) }
-          case _ => Nil
-        }
         val fromTemplates = mod.templates.toList.flatMap { case (tplName, tpl) =>
           tpl.choices.values.toList.flatMap { ch =>
-            ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr])
+            ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr], None, walkCtx)
               .map { case (loc, u) => (modName.toString, Some(tplName.toString), loc, u) }
           }
         }
         val fromInterfaces = mod.interfaces.toList.flatMap { case (ifaceName, iface) =>
           iface.choices.values.toList.flatMap { ch =>
-            ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr])
+            ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr], None, walkCtx)
               .map { case (loc, u) => (modName.toString, Some(ifaceName.toString), loc, u) }
           }
         }
-        fromDefs ++ fromTemplates ++ fromInterfaces
+        fromTemplates ++ fromInterfaces
       }
 
     // only cross-package interactions needed
