@@ -5,8 +5,17 @@ Static analysis tool for inspecting cross-package interactions in compiled Daml 
 ## Build
 
 ```bash
-sbt compile
+sbt compile           
+sbt assembly # makes jar
 ```
+
+If you make the JAR file, run like so:
+
+```bash
+java -jar target/scala-2.13/daml-analyzer-0.1.0-SNAPSHOT.jar foo.dar -o out/
+```
+
+See the various ways to run below. You can either run `sbt "run ..."` or `java -jar ...`.
 
 ## Run
 

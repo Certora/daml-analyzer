@@ -1,14 +1,25 @@
 lazy val root = (project in file("."))
   .settings(
-    name         := "daml-analyzer",
+    name := "daml-analyzer",
     organization := "com.certora",
-    version      := "0.1.0-SNAPSHOT",
+    version := "0.1.0-SNAPSHOT",
     scalaVersion := "2.13.16",
 
     libraryDependencies ++= Seq(
-      "com.daml"          %% "daml-lf-archive-reader" % "3.4.11",
-      "org.slf4j"          % "slf4j-nop"              % "2.0.16",
-      "com.github.scopt"  %% "scopt"                  % "4.1.0",
-      "org.scalatest"     %% "scalatest"              % "3.2.19" % Test,
+      "com.daml" %% "daml-lf-archive-reader" % "3.4.11",
+      "org.slf4j" % "slf4j-nop" % "2.0.16",
+      "com.github.scopt" %% "scopt" % "4.1.0",
+      "org.scalatest" %% "scalatest" % "3.2.19" % Test
     ),
+
+    // `sbt assembly` configs, may need to fix later
+    Compile / mainClass        := Some("com.certora.damlanalyzer.Main"),
+    assembly / assemblyJarName := s"daml-analyzer-${version.value}.jar",
+    assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", "services", _*) => MergeStrategy.concat
+      case PathList("META-INF", _*)             => MergeStrategy.discard
+      case other =>
+        val default = (assembly / assemblyMergeStrategy).value
+        default(other)
+    }
   )
