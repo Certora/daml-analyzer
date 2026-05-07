@@ -47,7 +47,7 @@ object CrossPackageAnalyzer {
         val isIface   = isInterfaceTarget(u)
         CrossPackageInteraction(
           interactionType = iType,
-          source          = loc.map(toSchemaLocation),
+          source          = Some(loc.map(toSchemaLocation).getOrElse(fileOnlyLocation(modName))),
           caller = Caller(
             pkg       = mainMeta.name.toString,
             version   = mainMeta.version.toString,
@@ -166,16 +166,18 @@ object CrossPackageAnalyzer {
   }
 
   // Convert a Daml-LF Ref.Location to our schema's SourceLocation.
-  // File path: derived from module name (`.daml` suffix) — works for the standard
-  // one-module-per-file convention; may not hold for unusual layouts.
   private def toSchemaLocation(loc: Ref.Location): SourceLocation =
     SourceLocation(
       file        = loc.module.toString + ".daml",
-      startLine   = loc.start._1 + 1,
-      startColumn = loc.start._2 + 1,
-      endLine     = loc.end._1 + 1,
-      endColumn   = loc.end._2 + 1
+      startLine   = Some(loc.start._1 + 1),
+      startColumn = Some(loc.start._2 + 1),
+      endLine     = Some(loc.end._1 + 1),
+      endColumn   = Some(loc.end._2 + 1)
     )
+
+
+  private def fileOnlyLocation(modName: String): SourceLocation =
+    SourceLocation(file = modName + ".daml")
 
   // some other helpers
   private def isStdlib(name: String): Boolean =

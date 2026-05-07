@@ -63,12 +63,13 @@ $interactions
     val targetFields = (targetCommon ++ targetOptional).mkString(",\n        ")
 
     val sourceJson = i.source.map { s =>
+      val parts = List(s""""file": ${q(s.file)}""") ++
+        s.startLine.map(v   => s""""startLine": $v""").toList ++
+        s.startColumn.map(v => s""""startColumn": $v""").toList ++
+        s.endLine.map(v     => s""""endLine": $v""").toList ++
+        s.endColumn.map(v   => s""""endColumn": $v""").toList
       s""""source": {
-        "file": ${q(s.file)},
-        "startLine": ${s.startLine},
-        "startColumn": ${s.startColumn},
-        "endLine": ${s.endLine},
-        "endColumn": ${s.endColumn}
+        ${parts.mkString(",\n        ")}
       },
       """
     }.getOrElse("")

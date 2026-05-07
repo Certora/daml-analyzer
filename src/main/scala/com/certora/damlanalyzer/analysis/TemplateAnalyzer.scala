@@ -22,7 +22,7 @@ object TemplateAnalyzer {
             val qn        = ifaceId.qualifiedName
             CrossPackageInteraction(
               interactionType = InteractionType.ImplementsInterface,
-              source          = None, // todo: location info later
+              source          = Some(SourceLocation(file = modName.toString + ".daml")),
               caller = Caller(
                 pkg       = mainMeta.name.toString,
                 version   = mainMeta.version.toString,

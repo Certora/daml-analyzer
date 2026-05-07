@@ -9,12 +9,14 @@ case class AnalyzedPackage(
   lfVersion: String
 )
 
+// Line, column are optional. If we don't have ELocation for any reason,
+// we just show the `file` from the caller's module.
 case class SourceLocation(
-  file: String,
-  startLine: Int,
-  startColumn: Int,
-  endLine: Int,
-  endColumn: Int
+  file:        String,
+  startLine:   Option[Int] = None,
+  startColumn: Option[Int] = None,
+  endLine:     Option[Int] = None,
+  endColumn:   Option[Int] = None
 )
 
 case class Caller(
@@ -22,7 +24,7 @@ case class Caller(
   version:   String,
   packageId: String,
   module:    String,
-  template:  Option[String] = None  // we set this for ImplementsInterface findings, wip
+  template:  Option[String] = None
 )
 
 case class Target(
