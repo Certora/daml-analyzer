@@ -24,7 +24,8 @@ case class Caller(
   version:   String,
   packageId: String,
   module:    String,
-  template:  Option[String] = None
+  template:  Option[String] = None,
+  choice:    Option[String] = None
 )
 
 case class Target(

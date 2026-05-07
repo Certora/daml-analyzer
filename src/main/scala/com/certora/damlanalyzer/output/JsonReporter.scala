@@ -46,7 +46,8 @@ $interactions
       s""""module": ${q(i.caller.module)}"""
     )
     val callerOptional =
-      i.caller.template.map(t => s""""template": ${q(t)}""").toList
+      i.caller.template.map(t => s""""template": ${q(t)}""").toList ++
+        i.caller.choice.map(c => s""""choice": ${q(c)}""").toList
     val callerFields = (callerCommon ++ callerOptional).mkString(",\n        ")
 
     val targetCommon = List(

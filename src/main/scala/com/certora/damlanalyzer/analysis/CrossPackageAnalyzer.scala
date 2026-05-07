@@ -15,29 +15,33 @@ object CrossPackageAnalyzer {
 
     val walkCtx = WalkCtx(pkgsById = pkgsById)
 
-    val findings: List[(String, Option[String], Option[Ref.Location], Ast.Update)] =
+    val findings: List[(String, Option[String], Option[String], Option[Ref.Location], Ast.Update)] =
       mainPkg.modules.toList.flatMap { case (modName, mod) =>
         val fromTemplates = mod.templates.toList.flatMap { case (tplName, tpl) =>
           tpl.choices.values.toList.flatMap { ch =>
             ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr], None, walkCtx)
-              .map { case (loc, u) => (modName.toString, Some(tplName.toString), loc, u) }
+              .map { case (loc, u) =>
+                (modName.toString, Some(tplName.toString), Some(ch.name.toString), loc, u)
+              }
           }
         }
         val fromInterfaces = mod.interfaces.toList.flatMap { case (ifaceName, iface) =>
           iface.choices.values.toList.flatMap { ch =>
             ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr], None, walkCtx)
-              .map { case (loc, u) => (modName.toString, Some(ifaceName.toString), loc, u) }
+              .map { case (loc, u) =>
+                (modName.toString, Some(ifaceName.toString), Some(ch.name.toString), loc, u)
+              }
           }
         }
         fromTemplates ++ fromInterfaces
       }
 
     // only cross-package interactions needed
-    val crossPkg = findings.filter { case (_, _, _, u) =>
+    val crossPkg = findings.filter { case (_, _, _, _, u) =>
       targetTypeConId(u).exists(_.packageId != mainPkgId)
     }
 
-    val updateInteractions = crossPkg.flatMap { case (modName, callerTpl, loc, u) =>
+    val updateInteractions = crossPkg.flatMap { case (modName, callerTpl, callerChoice, loc, u) =>
       for {
         tcid  <- targetTypeConId(u)
         iType <- interactionTypeOf(u)
@@ -53,7 +57,8 @@ object CrossPackageAnalyzer {
             version   = mainMeta.version.toString,
             packageId = mainPkgId.toString,
             module    = modName,
-            template  = callerTpl
+            template  = callerTpl,
+            choice    = callerChoice
           ),
           target = Target(
             pkg       = targetPkg.map(_.metadata.name.toString).getOrElse("?"),
@@ -70,7 +75,8 @@ object CrossPackageAnalyzer {
     }
 
     val implementsInterfaceInteractions = TemplateAnalyzer.findImplementsInterfaceFindings(dar)
-    val interactions = updateInteractions ++ implementsInterfaceInteractions
+    // dedup identical findings
+    val interactions = (updateInteractions ++ implementsInterfaceInteractions).distinct
 
     val deps = dar.all.collect {
       case (id, pkg) if id != mainPkgId && !isStdlib(pkg.metadata.name.toString) =>
