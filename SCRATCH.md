@@ -11,6 +11,4 @@ TODO: we can do it if we see a need in real applications. Probably need somethin
 
 ### ByKey detection has no integration test
 
-We do have support for detecting `ExerciseByKey`/`FetchByKey`/`LookupByKey` in but when trying to use these we saw that contract keys were removed in Daml-LF 2.x. We might just keep it for legacy LF 1.x DARs though.
-
-Maybe we can write some dummy ASTs for constructing `UpdateExerciseByKey` / `UpdateFetchByKey` / `UpdateLookupByKey` nodes directly and test it that way.
+We do have support for detecting `ExerciseByKey`/`FetchByKey`/`LookupByKey` but when trying to use these we saw that contract keys were removed in Daml-LF 2.x. We might just keep it for legacy LF 1.x DARs though.
