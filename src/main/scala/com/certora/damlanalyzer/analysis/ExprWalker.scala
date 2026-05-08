@@ -78,29 +78,29 @@ object ExprWalker {
       currentLoc: Option[Ref.Location],
       ctx:        WalkCtx
   ): List[(Option[Ref.Location], Ast.Update)] = u match {
-    case ex @ Ast.UpdateExercise(_, _, cidE, argE) =>
-      List((currentLoc, ex: Ast.Update)) ++
+    case Ast.UpdateExercise(_, _, cidE, argE) =>
+      List((currentLoc, u)) ++
         findInteractions(cidE, currentLoc, ctx) ++
         findInteractions(argE, currentLoc, ctx)
-    case ex @ Ast.UpdateExerciseInterface(_, _, cidE, argE, guard) =>
-      List((currentLoc, ex: Ast.Update)) ++
+    case Ast.UpdateExerciseInterface(_, _, cidE, argE, guard) =>
+      List((currentLoc, u)) ++
         findInteractions(cidE, currentLoc, ctx) ++
         findInteractions(argE, currentLoc, ctx) ++
         guard.toList.flatMap(e2 => findInteractions(e2, currentLoc, ctx))
-    case ex @ Ast.UpdateExerciseByKey(_, _, key, argE) =>
-      List((currentLoc, ex: Ast.Update)) ++
+    case Ast.UpdateExerciseByKey(_, _, key, argE) =>
+      List((currentLoc, u)) ++
         findInteractions(key, currentLoc, ctx) ++
         findInteractions(argE, currentLoc, ctx)
-    case c @ Ast.UpdateCreate(_, expr) =>
-      List((currentLoc, c: Ast.Update)) ++ findInteractions(expr, currentLoc, ctx)
-    case c @ Ast.UpdateCreateInterface(_, expr) =>
-      List((currentLoc, c: Ast.Update)) ++ findInteractions(expr, currentLoc, ctx)
-    case f @ Ast.UpdateFetchTemplate(_, cid) =>
-      List((currentLoc, f: Ast.Update)) ++ findInteractions(cid, currentLoc, ctx)
-    case f @ Ast.UpdateFetchInterface(_, cid) =>
-      List((currentLoc, f: Ast.Update)) ++ findInteractions(cid, currentLoc, ctx)
-    case f @ Ast.UpdateFetchByKey(_)  => List((currentLoc, f: Ast.Update))
-    case f @ Ast.UpdateLookupByKey(_) => List((currentLoc, f: Ast.Update))
+    case Ast.UpdateCreate(_, expr) =>
+      List((currentLoc, u)) ++ findInteractions(expr, currentLoc, ctx)
+    case Ast.UpdateCreateInterface(_, expr) =>
+      List((currentLoc, u)) ++ findInteractions(expr, currentLoc, ctx)
+    case Ast.UpdateFetchTemplate(_, cid) =>
+      List((currentLoc, u)) ++ findInteractions(cid, currentLoc, ctx)
+    case Ast.UpdateFetchInterface(_, cid) =>
+      List((currentLoc, u)) ++ findInteractions(cid, currentLoc, ctx)
+    case _: Ast.UpdateFetchByKey  => List((currentLoc, u))
+    case _: Ast.UpdateLookupByKey => List((currentLoc, u))
 
     // just recursing for now WIP
     case Ast.UpdatePure(_, expr) => findInteractions(expr, currentLoc, ctx)
