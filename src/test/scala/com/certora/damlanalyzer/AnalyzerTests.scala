@@ -107,4 +107,40 @@ class AnalyzerTests extends AnyFunSuite {
     assert(implementsInterface.target.pkg == "pkg-iclaim")
     assert(implementsInterface.target.interface.contains("IClaim"))
   }
+
+  // Benchmark DARs from the official Daml SDK templates
+  // these tests are not very strong yet, just checking basic things 
+
+  test("test5: daml-sdk multi-package-example/main implements interface from other package") {
+    val result  = loadAndAnalyze("/dars/mpx-test-main-1.0.0.dar")
+    val finding = result.interactions
+      .find(_.interactionType == InteractionType.ImplementsInterface)
+      .getOrElse(fail("expected an ImplementsInterface finding"))
+    assert(finding.target.pkg == "mpx-test-interfaces")
+  }
+
+  test("test6: daml-sdk upgrades-example main-v1 implements interface from other package") {
+    val result  = loadAndAnalyze("/dars/upgrades-example-main-1.0.0.dar")
+    val finding = result.interactions
+      .find(_.interactionType == InteractionType.ImplementsInterface)
+      .getOrElse(fail("expected an ImplementsInterface finding"))
+    assert(finding.target.pkg == "upgrades-example-interfaces")
+  }
+
+  test("test7: daml-sdk upgrades-example main-v2 implements the same interface after SCU") {
+    val result  = loadAndAnalyze("/dars/upgrades-example-main-2.0.0.dar")
+    val finding = result.interactions
+      .find(_.interactionType == InteractionType.ImplementsInterface)
+      .getOrElse(fail("expected an ImplementsInterface finding"))
+    assert(finding.target.pkg == "upgrades-example-interfaces")
+  }
+
+  // got from dpm template cache.
+  // dpm new --list showed this as an available template
+  test("test8: dpm daml-patterns is self-contained, 0  findings") {
+    val result = loadAndAnalyze("/dars/daml-patterns-0.0.1.dar")
+    assert(result.analyzedPackage.name == "daml-patterns")
+    assert(result.summary.totalInteractions == 0,
+      s"self-contained so expected zero findings but got ${result.summary.totalInteractions}")
+  }
 }
