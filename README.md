@@ -30,7 +30,20 @@ See the various ways to run below. You can either run `sbt "run ..."` or `java -
 | `sbt "run dars-dir/"` | Error because batch mode requires `-o` |
 | `sbt "run --help"` | Print usage |
 
-Render a DOT file to PNG with Graphviz:
+## Visualize the results
+
+Two options depending on the output format you produced.
+
+**JSON → browser-based summary table** 
+
+Open `viewer/index.html` in any browser, click the file input, and pick one or more `.json` files from your output directory. See [viewer/README.md](viewer/README.md) for details.
+
+```bash
+sbt "run foo.dar -o out/"
+open viewer/index.html  # load out/foo.json using file picker
+```
+
+**DOT → PNG with Graphviz**
 
 ```bash
 dot -Tpng path/to/foo.dot -o path/to/foo.png

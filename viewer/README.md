@@ -2,6 +2,8 @@
 
 Browser-based summary table for the analyzer's JSON output.
 
+> Built with [Claude Code](https://claude.com/claude-code).
+
 ## Usage
 
 ```bash
