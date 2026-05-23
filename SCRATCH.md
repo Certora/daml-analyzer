@@ -1,7 +1,11 @@
 # Issues to Handle
 
 ### Source line numbers are missing
-We always populate `source.file` based on the caller's module, but `startLine`/`endLine` are not present when no `ELocation` is reachable. We this this in  Splice for 1339/2415 findings. It might be because the Daml-LF compiler does not produce `ELocation` for `template.signatories`/`observers`/`choice.controllers`/`choice.update`.
+We always populate `source.file` based on the caller's module, but `startLine`/`endLine` are not present when no `ELocation` is reachable. We see this in  Splice for 1339/2415 findings. Based on discussion with Canton developers, it looks like not every line of `lf` can be directly correlated to a line in `daml` due to two reasons:
+- `lf` being generated, think typeclass instances
+- code being optimized/transformed, since DAML utilizes GHC
+
+So for now, we may not be able to fix much.
 
 ### Higher-order functions
 
