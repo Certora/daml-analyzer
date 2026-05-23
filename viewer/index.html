@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>daml-analyzer viewer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #222; }
+    #app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: 1fr 380px; height: 100vh; }
+
+    #toolbar {
+      grid-column: 1 / span 2;
+      padding: 10px 16px;
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap;
+    }
+    #toolbar h1 { font-size: 14px; margin: 0; font-weight: 600; }
+    #toolbar input[type=file] { font-size: 13px; }
+    #toolbar input[type=text] {
+      padding: 4px 8px; font-size: 13px; width: 240px;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    #status { margin-left: auto; color: #666; font-size: 12px; }
+
+    #tableView { background: #fff; overflow: auto; padding: 20px; }
+
+    #panel { border-left: 1px solid #ddd; padding: 16px; overflow-y: auto; background: white; position: relative; }
+    /* Drag handle on the panel's left edge — invisible until hover. */
+    #panelResize {
+      position: absolute; top: 0; left: -3px;
+      width: 6px; height: 100%;
+      cursor: ew-resize; z-index: 10;
+      background: transparent;
+      transition: background 0.15s;
+    }
+    #panelResize:hover, #panelResize.dragging { background: rgba(25, 118, 210, 0.35); }
+    #panel h2 { font-size: 13px; margin: 0 0 8px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+    #panel h3 { font-size: 14px; margin: 16px 0 6px; }
+
+    .finding { border-top: 1px solid #eee; padding: 10px 0; font-size: 13px; }
+    .finding:first-of-type { border-top: none; }
+    .finding .caller { font-weight: 600; }
+    .finding .arrow { color: #999; margin: 0 4px; }
+    .finding .target { color: #333; }
+    .finding .src { color: #888; font-size: 12px; margin-top: 4px; font-family: ui-monospace, monospace; }
+    .pill { display: inline-block; padding: 1px 7px; background: #eef; border-radius: 10px; font-size: 11px; margin-right: 4px; color: #335; }
+    /* Only non-consuming gets a pill (consuming is the default for exercises).
+       Red-tinted because non-consuming exercises are the auditor-interesting case —
+       they can be re-run on the same contract repeatedly. */
+    .pill.nonconsuming { background: #fee; color: #a33; font-weight: 600; }
+    .hint { color: #888; font-size: 13px; line-height: 1.5; }
+
+    /* Key shown at the top of the findings list — explains how to read each row. */
+    details.finding-key {
+      margin: 6px 0 14px; font-size: 12px; color: #555;
+      background: #fafafa; border: 1px solid #eee; border-radius: 4px;
+      padding: 8px 12px;
+    }
+    details.finding-key summary {
+      cursor: pointer; font-weight: 600; color: #333; outline: none;
+      list-style-position: outside;
+    }
+    details.finding-key ul {
+      margin: 8px 0 0; padding-left: 18px; line-height: 1.6;
+    }
+    details.finding-key li { margin: 4px 0; }
+    details.finding-key code {
+      background: #fff; border: 1px solid #e0e0e0; padding: 0 4px;
+      border-radius: 3px; font-size: 11px; color: #1976d2;
+    }
+    details.finding-key .label {
+      display: inline-block; min-width: 60px;
+      font-weight: 600; color: #1976d2;
+    }
+
+    /* Findings table. */
+    .jsonSection { margin-bottom: 32px; }
+    .jsonSection > h3 {
+      font-size: 16px; margin: 0 0 4px; color: #1976d2;
+      font-weight: 600;
+    }
+    .jsonSection .meta { color: #888; font-weight: 400; font-size: 12px; margin-left: 8px; }
+    .findings-table {
+      border-collapse: collapse; font-size: 13px;
+      margin-top: 8px; width: 100%;
+      border: 1px solid #c8c8c8;        /* outer frame */
+    }
+    .findings-table th, .findings-table td {
+      padding: 6px 10px; text-align: right;
+      border: 1px solid #d8d8d8;        /* every cell gets its own box */
+      white-space: nowrap;
+    }
+    .findings-table th {
+      background: #ececec; font-weight: 600; font-size: 12px;
+      color: #444; position: sticky; top: 0; z-index: 1;
+      border-color: #b8b8b8;            /* slightly stronger separators in the header */
+    }
+    .findings-table th:first-child, .findings-table td:first-child { text-align: left; }
+    .findings-table th:nth-child(2), .findings-table td:nth-child(2) {
+      text-align: left; color: #888; font-size: 12px; font-family: ui-monospace, monospace;
+    }
+    .findings-table tbody td.pkg-cell { font-family: ui-monospace, monospace; font-size: 12px; }
+    .findings-table tbody tr { cursor: pointer; }
+    .findings-table tbody tr:hover { background: #f5faff; }
+    .findings-table tbody tr.selected { background: #e3f2fd; }
+    .findings-table td.zero { color: #ccc; }
+    .findings-table td.clickable:hover { background: #d0e4ff; }
+    .findings-table td.cell-selected { background: #1976d2; color: #fff; font-weight: 600; }
+    .findings-table tfoot td {
+      font-weight: 600; border-top: 2px solid #888; background: #fafafa;
+    }
+    .tableEmpty { color: #888; padding: 40px; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="toolbar">
+      <h1>daml-analyzer viewer</h1>
+      <input type="file" id="file" accept=".json" multiple>
+      <input type="text" id="search" placeholder="filter rows by package name…">
+      <span id="status">No file loaded</span>
+    </div>
+
+    <div id="tableView"></div>
+
+    <div id="panel">
+      <div id="panelResize" title="Drag to resize"></div>
+      <div id="details">
+        <h2>How to use</h2>
+        <p class="hint"><strong>Load</strong> one or more analyzer JSONs (multi-select supported).</p>
+        <p class="hint">One section per JSON; rows are <strong>target packages</strong>, columns are <strong>interaction-type counts</strong>.</p>
+        <p class="hint"><strong>Click a row</strong> to see every finding targeting that package; <strong>click a single cell</strong> to narrow to that interaction type.</p>
+        <p class="hint">The <strong>search box</strong> filters rows by package-name substring.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================== state ==============================
+    let loadedResults = [];          // analyzed JSONs
+    let searchQuery = '';
+
+    // ============================== load ==============================
+    document.getElementById('file').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      loadedResults = await Promise.all(files.map(async f => JSON.parse(await f.text())));
+      renderTable();
+      applyTableSearch();    // re-apply current search query to the newly-rendered rows
+      const total = loadedResults.reduce((s, r) => s + r.summary.totalInteractions, 0);
+      document.getElementById('status').textContent =
+        `${loadedResults.length} DAR(s) · ${total} findings`;
+    });
+
+    // ============================== search ==============================
+    document.getElementById('search').addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      applyTableSearch();
+    });
+
+    function applyTableSearch() {
+      const rows = document.querySelectorAll('#tableView tbody tr');
+      rows.forEach(tr => {
+        if (!searchQuery) { tr.style.display = ''; return; }
+        const pkg = (tr.dataset.target || '').toLowerCase();
+        tr.style.display = pkg.includes(searchQuery) ? '' : 'none';
+      });
+    }
+
+    // ============================== table ==============================
+    function renderTable() {
+      const container = document.getElementById('tableView');
+      if (!loadedResults.length) {
+        container.innerHTML = '<div class="tableEmpty">Load one or more analyzer JSONs to see the summary table.</div>';
+        return;
+      }
+      // Column set: union of all interaction types across all loaded JSONs, sorted alphabetically.
+      const typeCols = Array.from(new Set(
+        loadedResults.flatMap(r => r.interactions.map(i => i.type))
+      )).sort();
+
+      const sections = loadedResults.map((r, ri) => {
+        // Group findings by target package within this JSON.
+        const byPkg = new Map();
+        r.interactions.forEach(i => {
+          const key = i.target.package;
+          if (!byPkg.has(key)) {
+            byPkg.set(key, { name: i.target.package, version: i.target.version, byType: {}, total: 0 });
+          }
+          const row = byPkg.get(key);
+          row.byType[i.type] = (row.byType[i.type] || 0) + 1;
+          row.total++;
+        });
+        const rows = Array.from(byPkg.values()).sort((a, b) => b.total - a.total);
+        const colTotals = typeCols.map(t => rows.reduce((s, row) => s + (row.byType[t] || 0), 0));
+        const grandTotal = colTotals.reduce((s, x) => s + x, 0);
+
+        if (rows.length === 0) {
+          return `
+            <div class="jsonSection">
+              <h3>${escapeHtml(r.analyzedPackage.name)} <span class="meta">${escapeHtml(r.analyzedPackage.version)} · no cross-package interactions</span></h3>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="jsonSection">
+            <h3>${escapeHtml(r.analyzedPackage.name)}
+              <span class="meta">${escapeHtml(r.analyzedPackage.version)} · ${r.summary.totalInteractions} interactions across ${rows.length} target package${rows.length === 1 ? '' : 's'}</span>
+            </h3>
+            <table class="findings-table">
+              <thead>
+                <tr>
+                  <th>Target package</th>
+                  <th>Version</th>
+                  ${typeCols.map(t => `<th>${escapeHtml(t)}</th>`).join('')}
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(row => `
+                  <tr data-json="${ri}" data-target="${escapeHtml(row.name)}">
+                    <td class="pkg-cell">${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(row.version || '')}</td>
+                    ${typeCols.map(t => {
+                      const c = row.byType[t] || 0;
+                      return c === 0
+                        ? `<td class="zero">·</td>`
+                        : `<td class="clickable" data-type="${escapeHtml(t)}">${c}</td>`;
+                    }).join('')}
+                    <td><strong>${row.total}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total</td>
+                  <td></td>
+                  ${colTotals.map(c => `<td>${c || '·'}</td>`).join('')}
+                  <td>${grandTotal}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = sections;
+
+      container.querySelectorAll('tbody tr').forEach(tr => {
+        tr.addEventListener('click', (e) => {
+          const cell = e.target.closest('td');
+          const jsonIdx = +tr.dataset.json;
+          const target = tr.dataset.target;
+          const type = cell && cell.classList.contains('clickable') ? cell.dataset.type : null;
+
+          container.querySelectorAll('tr.selected, td.cell-selected')
+            .forEach(el => el.classList.remove('selected', 'cell-selected'));
+          tr.classList.add('selected');
+          if (type) cell.classList.add('cell-selected');
+
+          const r = loadedResults[jsonIdx];
+          let fs = r.interactions.filter(i => i.target.package === target);
+          if (type) fs = fs.filter(i => i.type === type);
+          showFindings(fs, type ? `${type} → ${target}` : `All findings → ${target}`);
+        });
+      });
+    }
+
+    // ============================== findings panel ==============================
+    function showFindings(findings, title) {
+      const count = findings.length;
+      document.getElementById('details').innerHTML = `
+        <h2>${escapeHtml(title)}</h2>
+        <p class="hint" style="margin: 4px 0 8px;"><strong>${count}</strong> finding${count === 1 ? '' : 's'}</p>
+        <details class="finding-key">
+          <summary>How to read each finding below</summary>
+          <ul>
+            <li><span class="label">caller</span> <code>Module.Template.Choice</code> in the analyzed DAR</li>
+            <li><span class="label">→ target</span> <code>Module.Template[.Choice]</code> in another package</li>
+            <li><span class="label">tags</span> interaction type, plus <span class="pill nonconsuming" style="font-size:10px;">non-consuming</span> when applicable</li>
+            <li><span class="label">source</span> <code>file:line:col</code> in the caller's Daml file</li>
+          </ul>
+        </details>
+        ${findings.map(f => `
+          <div class="finding">
+            <div>
+              <span class="caller">${escapeHtml(f.caller.module)}.${escapeHtml(f.caller.template || '?')}.${escapeHtml(f.caller.choice || '?')}</span>
+              <span class="arrow">→</span>
+              <span class="target">${escapeHtml(f.target.module)}.${escapeHtml(f.target.template || f.target.interface || '?')}${f.target.choice ? '.' + escapeHtml(f.target.choice) : ''}</span>
+            </div>
+            <div>
+              <span class="pill">${escapeHtml(f.type)}</span>
+              ${f.target.consuming === false ? '<span class="pill nonconsuming">non-consuming</span>' : ''}
+            </div>
+            ${f.source ? `<div class="src">${escapeHtml(f.source.file)}${f.source.startLine ? ':' + f.source.startLine : ''}${f.source.startColumn ? ':' + f.source.startColumn : ''}</div>` : ''}
+          </div>
+        `).join('')}
+      `;
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ============================== resizable panel ==============================
+    // Drag the splitter on the panel's left edge to resize. Width persists across reloads.
+    (function setupPanelResize() {
+      const splitter = document.getElementById('panelResize');
+      const app      = document.getElementById('app');
+      const MIN = 280, MAX = 900;
+      const setWidth = (w) => {
+        const clamped = Math.max(MIN, Math.min(MAX, w));
+        app.style.gridTemplateColumns = `1fr ${clamped}px`;
+        return clamped;
+      };
+      // Restore saved width if any.
+      const saved = parseInt(localStorage.getItem('panelWidth'), 10);
+      if (saved) setWidth(saved);
+
+      let dragging = false;
+      splitter.addEventListener('mousedown', (e) => {
+        dragging = true;
+        splitter.classList.add('dragging');
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const w = setWidth(window.innerWidth - e.clientX);
+        localStorage.setItem('panelWidth', String(w));
+      });
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        splitter.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+    })();
+
+    // ============================== startup ==============================
+    renderTable();
+  </script>
+</body>
+</html>
