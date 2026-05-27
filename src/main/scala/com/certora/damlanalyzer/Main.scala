@@ -11,10 +11,12 @@ object Main {
     val config = CliConfig.parse(args).getOrElse(sys.exit(1))
 
     val dars: List[File] =
-      if (config.input.isDirectory)
+      if (config.input.isDirectory) {
         config.input.listFiles().toList.filter(_.getName.endsWith(".dar")).sorted
-      else
+      }
+      else {
         List(config.input)
+      }
 
     if (dars.isEmpty) {
       System.err.println(s"no .dar files found in ${config.input.getAbsolutePath}")
@@ -22,7 +24,9 @@ object Main {
     }
 
     config.outputDir.foreach { dir =>
-      if (!dir.exists()) dir.mkdirs()
+      if (!dir.exists()) {
+        dir.mkdirs()
+      }
       if (!dir.isDirectory) {
         System.err.println(s"-o must be a directory: ${dir.getAbsolutePath}")
         sys.exit(1)
@@ -37,10 +41,12 @@ object Main {
           val stem   = dar.getName.stripSuffix(".dar")
           config.outputDir match {
             case Some(dir) =>
-              if (config.format == "both" || config.format == "json")
+              if (config.format == "both" || config.format == "json") {
                 writeFile(new File(dir, s"$stem.json"), JsonReporter.render(result))
-              if (config.format == "both" || config.format == "dot")
+              }
+              if (config.format == "both" || config.format == "dot") {
                 writeFile(new File(dir, s"$stem.dot"), DotReporter.render(result))
+              }
             case None =>
               val out = config.format match {
                 case "dot" => DotReporter.render(result)
@@ -58,7 +64,11 @@ object Main {
 
   private def writeFile(f: File, content: String): Unit = {
     val w = new PrintWriter(f)
-    try w.write(content)
-    finally w.close()
+    try {
+      w.write(content)
+    }
+    finally {
+      w.close()
+    }
   }
 }
