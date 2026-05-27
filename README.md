@@ -23,7 +23,7 @@ See the various ways to run below. You can either run `sbt "run ..."` or `java -
 |---|---|
 | `sbt "run foo.dar"` | JSON to stdout |
 | `sbt "run foo.dar -f dot"` | DOT to stdout |
-| `sbt "run foo.dar -o out/"` | Writes both `out/foo.json` and `out/foo.dot` (default when `-o` is set) |
+| `sbt "run foo.dar -o out/"` | Writes both `out/foo.json` and `out/foo.dot` |
 | `sbt "run foo.dar -f json -o out/"` | Only `out/foo.json` |
 | `sbt "run foo.dar -f dot -o out/"` | Only `out/foo.dot` |
 | `sbt "run dars-dir/ -o out/"` | For each `*.dar` in `dars-dir`, both `<name>.json` and `<name>.dot` in `out/` |

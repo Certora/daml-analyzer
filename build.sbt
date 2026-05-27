@@ -9,6 +9,7 @@ lazy val root = (project in file("."))
       "com.daml" %% "daml-lf-archive-reader" % "3.4.11",
       "org.slf4j" % "slf4j-nop" % "2.0.16",
       "com.github.scopt" %% "scopt" % "4.1.0",
+      "io.circe" %% "circe-core" % "0.14.10",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     ),
 
