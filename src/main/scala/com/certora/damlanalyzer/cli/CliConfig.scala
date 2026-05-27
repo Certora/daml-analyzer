@@ -5,7 +5,7 @@ import java.io.File
 
 case class CliConfig(
     input: File = new File("."),
-    format: String = "both",
+    format: String = "both", // default
     outputDir: Option[File] = None
 )
 
@@ -14,6 +14,7 @@ object CliConfig {
 
   val parser: OParser[_, CliConfig] = {
     import builder._
+
     OParser.sequence(
       programName("daml-analyzer"),
       head("daml-analyzer", "0.1.0"),
@@ -29,31 +30,26 @@ object CliConfig {
         .valueName("json|dot|both")
         .validate {
           case "json" | "dot" | "both" => Right(())
-          case other                   =>
-            Left(s"unknown format: $other (expected 'json', 'dot', or 'both')")
+          case other                   => Left(s"unknown format: $other (expected 'json', 'dot', or 'both')")
         }
         .action((s, c) => c.copy(format = s))
-        .text(
-          "Output format: 'both' (default when -o is set), 'json', or 'dot'. " +
-            "Stdout only allows one of 'json' or 'dot'."
-        ),
+        .text("Output format: 'both' (default when -o is set), 'json', or 'dot'. Stdout only allows one of 'json' or 'dot'."),
 
       opt[File]('o', "output")
         .valueName("<dir>")
         .action((f, c) => c.copy(outputDir = Some(f)))
-        .text(
-          "Output directory. This generates <name>.json and/or <name>.dot. " +
-            "Required when input is a directory."
-        ),
+        .text("Output directory. This generates <name>.json and/or <name>.dot. Required when input is a directory."),
 
       help('h', "help").text("Print this message"),
 
       checkConfig { c =>
-        if (c.input.isDirectory && c.outputDir.isEmpty)
+        if (c.input.isDirectory && c.outputDir.isEmpty) {
           Left("batch mode requires -o <dir>")
-        else if (c.outputDir.isEmpty && c.format == "both")
+        } else if (c.outputDir.isEmpty && c.format == "both") {
+          Left("stdout dump must be run with either -f json or -f dot")
+        } else {
           Right(())
-        else Right(())
+        }
       }
     )
   }
