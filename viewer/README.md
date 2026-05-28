@@ -14,7 +14,12 @@ Pick one or more `.json` files from running the tool.
 Multi-select is supported, you can upload more than one json at a time.
 
 ## What it shows
+There are 4 tabs.
 
+### Highlights
+Main findings from the analysis
+
+### Summary Table
 One section per loaded JSON. Rows = target packages, columns = interaction-type counts. Example:
 
 ```
@@ -30,3 +35,9 @@ baz-credential   0.0.4    -       -         11     3                  14
 - **Click a row** → right panel lists every finding targeting that package, with caller template/choice, source `file:line:col`, and consuming pill.
 - **Click a single count cell** → narrows to just that interaction type for that target.
 - **Search box** filters rows by package-name substring.
+
+### Graph
+A graphical view of the summary, but this is less detailed. You can click on the nodes to get more information.
+
+### Diff
+Shows what changed between two versions of a DAR.
