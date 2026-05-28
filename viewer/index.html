@@ -6,7 +6,7 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #222; }
-    #app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: 1fr 380px; height: 100vh; }
+    #app { display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: 1fr 380px; height: 100vh; }
 
     #toolbar {
       grid-column: 1 / span 2;
@@ -16,6 +16,141 @@
       display: flex; align-items: center; gap: 12px;
       flex-wrap: wrap;
     }
+
+    /* Tab bar — its own row spanning both columns, below the toolbar. */
+    #tabbar {
+      grid-column: 1 / span 2;
+      background: #fff; border-bottom: 1px solid #ddd;
+      padding: 0 12px; display: flex; gap: 4px;
+    }
+    .tab {
+      border: none; background: none; cursor: pointer;
+      padding: 8px 14px; font-size: 13px; color: #666;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+    }
+    .tab:hover { color: #222; }
+    .tab.active { color: #1976d2; font-weight: 600; border-bottom-color: #1976d2; }
+
+    /* All content views live in the third grid row; hidden by default, shown per active tab. */
+    #highlightsView, #tableView, #panel, #graphView, #diffView { grid-row: 3; display: none; }
+    #tableView { grid-column: 1; }
+    #panel     { grid-column: 2; }
+    #highlightsView, #graphView, #diffView { grid-column: 1 / span 2; background: #fff; overflow: auto; }
+    #highlightsView, #diffView { padding: 20px; }
+
+    /* Tab visibility, driven by the active tab on #app. */
+    #app[data-tab="highlights"] #highlightsView { display: block; }
+    #app[data-tab="summary"]    #tableView,
+    #app[data-tab="summary"]    #panel          { display: block; }
+    #app[data-tab="graph"]      #graphView      { display: block; }
+    #app[data-tab="diff"]       #diffView       { display: block; }
+
+    #drilldown { margin-top: 24px; }
+
+    /* ---- Highlights overview band ---- */
+    .overview { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 28px; }
+    .stat-card {
+      flex: 1 1 140px; min-width: 140px;
+      border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px 14px; background: #fafbfc;
+    }
+    .stat-card .num { font-size: 26px; font-weight: 700; color: #1976d2; line-height: 1.1; }
+    .stat-card.warn .num { color: #d32f2f; }
+    .stat-card .lbl { font-size: 12px; color: #666; margin-top: 4px; }
+    .type-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 28px; }
+    .type-bar .chip {
+      font-size: 12px; padding: 3px 9px; border-radius: 10px;
+      background: #eef; color: #335; font-family: ui-monospace, monospace;
+    }
+    .type-bar .chip b { font-family: -apple-system, sans-serif; }
+
+    /* ---- Graph tab ---- */
+    #cy { position: absolute; inset: 0; }
+    #graphView { padding: 0; position: relative; overflow: hidden; }
+    #graphEmpty { padding: 40px; text-align: center; color: #888; }
+    #graphLegend {
+      position: absolute; top: 10px; right: 14px; z-index: 5;
+      background: rgba(255,255,255,0.92); border: 1px solid #ddd; border-radius: 6px;
+      padding: 8px 12px; font-size: 12px; color: #444; line-height: 1.7;
+    }
+    #graphLegend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 6px; border: 1px solid #aaa; }
+    #graphLegend .sw.analyzed { background: #e3f2fd; border-color: #1976d2; }
+    #graphLegend .sw.dep { background: #fff; border-color: #ccc; }
+    #graphLegend .sw.line { width: 16px; height: 0; border: none; border-top: 3px solid #888; border-radius: 0; }
+    #graphLegend .sw.line.nc { border-top-color: #d32f2f; }
+
+    /* ---- Diff tab ---- */
+    .diff-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .diff-controls select { font-size: 13px; padding: 3px 6px; }
+    .diff-controls .arrow { color: #999; }
+    .diff-section { margin-bottom: 24px; }
+    .diff-section h3 { font-size: 14px; margin: 0 0 8px; }
+    .diff-row {
+      padding: 6px 10px; font-size: 13px; font-family: ui-monospace, monospace;
+      border-left: 3px solid transparent; margin: 2px 0; border-radius: 0 3px 3px 0;
+    }
+    .diff-row.added   { background: #e9f7ec; border-left-color: #2e9e4f; }
+    .diff-row.removed { background: #fdecea; border-left-color: #d32f2f; }
+    .diff-row .sign { font-weight: 700; margin-right: 8px; }
+    .diff-row.added   .sign { color: #2e9e4f; }
+    .diff-row.removed .sign { color: #d32f2f; }
+    .diff-row .arrow { color: #999; margin: 0 4px; }
+    .diff-count { color: #666; font-size: 12px; font-weight: 400; margin-left: 6px; }
+    .diff-unchanged { color: #888; font-size: 13px; }
+
+    /* Diff graph: package star, edges colored by change. */
+    #diffGraphWrap {
+      position: relative; height: 440px; margin-bottom: 22px;
+      border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; background: #fafafa;
+    }
+    #diffCy { position: absolute; inset: 0; }
+    #diffGraphLoading { padding: 40px; text-align: center; color: #888; }
+    #diffGraphLegend {
+      position: absolute; top: 10px; right: 12px; z-index: 5;
+      background: rgba(255,255,255,0.92); border: 1px solid #ddd; border-radius: 6px;
+      padding: 8px 12px; font-size: 12px; color: #444; line-height: 1.7;
+    }
+    #diffGraphLegend .sw { display: inline-block; width: 16px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 3px solid #888; }
+    #diffGraphLegend .sw.added   { border-top-color: #2e9e4f; }
+    #diffGraphLegend .sw.removed { border-top: 3px dashed #d32f2f; }
+    #diffGraphLegend .sw.changed { border-top-color: #f9a825; }
+
+    /* Click-to-inspect overlay, shared by both graphs. */
+    .graph-details {
+      position: absolute; left: 12px; bottom: 12px; z-index: 6;
+      width: 360px; max-width: calc(100% - 24px); max-height: 62%; overflow: auto;
+      background: #fff; border: 1px solid #ccc; border-radius: 6px;
+      padding: 12px 14px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.14);
+      display: none;
+    }
+    .graph-details.show { display: block; }
+    .graph-details h4 { margin: 0 6px 8px 0; font-size: 13px; font-family: ui-monospace, monospace; word-break: break-all; }
+    .graph-details .close { position: absolute; top: 8px; right: 10px; cursor: pointer; color: #999; font-size: 16px; line-height: 1; }
+    .graph-details .gd-sec { margin: 8px 0 4px; color: #555; font-weight: 600; }
+    .graph-details .gd-sec.added   { color: #2e9e4f; }
+    .graph-details .gd-sec.removed { color: #d32f2f; }
+    .graph-details .gd-row { padding: 3px 0; font-family: ui-monospace, monospace; border-top: 1px solid #f0f0f0; }
+    .graph-details .gd-row:first-of-type { border-top: none; }
+    .graph-details .arrow { color: #999; margin: 0 3px; }
+    .graph-details .muted { color: #888; }
+
+    /* Clickable dependency chip in the dependency table. */
+    .dep-chip {
+      display: inline-block; padding: 2px 9px; margin: 2px 4px 2px 0;
+      background: #eef; color: #335; border-radius: 10px; font-size: 12px;
+      cursor: pointer; font-family: ui-monospace, monospace;
+    }
+    .dep-chip:hover { background: #d0e4ff; }
+    .dep-chip.selected { background: #1976d2; color: #fff; }
+    .dep-none { color: #ccc; }
+    /* Non-consuming function list, one line per choice. */
+    .nc-func { padding: 4px 0; font-size: 13px; font-family: ui-monospace, monospace; }
+    .nc-func .count { color: #888; font-family: -apple-system, sans-serif; font-size: 12px; margin-left: 6px; }
+    /* Drill-down cells list one or more target callees; let them wrap and left-align. */
+    .findings-table td.targets {
+      text-align: left; white-space: normal;
+      font-family: ui-monospace, monospace; font-size: 12px;
+    }
+    .findings-table td.targets.empty { color: #ccc; }
     #toolbar h1 { font-size: 14px; margin: 0; font-weight: 600; }
     #toolbar input[type=file] { font-size: 13px; }
     #toolbar input[type=text] {
@@ -115,7 +250,7 @@
   </style>
 </head>
 <body>
-  <div id="app">
+  <div id="app" data-tab="highlights">
     <div id="toolbar">
       <h1>daml-analyzer viewer</h1>
       <input type="file" id="file" accept=".json" multiple>
@@ -123,7 +258,20 @@
       <span id="status">No file loaded</span>
     </div>
 
+    <div id="tabbar">
+      <button class="tab active" data-tab="highlights">Highlights</button>
+      <button class="tab" data-tab="summary">Summary table</button>
+      <button class="tab" data-tab="graph">Graph</button>
+      <button class="tab" data-tab="diff">Diff</button>
+    </div>
+
+    <div id="highlightsView"></div>
+
     <div id="tableView"></div>
+
+    <div id="graphView"></div>
+
+    <div id="diffView"></div>
 
     <div id="panel">
       <div id="panelResize" title="Drag to resize"></div>
@@ -141,13 +289,48 @@
     // ============================== state ==============================
     let loadedResults = [];          // analyzed JSONs
     let searchQuery = '';
+    let pkgPrefixCount = 0;          // leading "-"-segments common to all loaded package names, stripped from display
+    let cy = null;                   // cytoscape instance (graph tab), built lazily
+    let diffCy = null;               // cytoscape instance (diff tab graph)
+    let graphDirty = true;           // graph needs (re)building before next show
+    let diffGroups = new Map();      // package name -> versions[] (diff tab)
+
+    // Package names share a long prefix (e.g. "splice-api-token-"); strip the part
+    // common to every loaded package so the distinguishing suffix is what's shown.
+    // The full name is always kept in a title tooltip. Recomputed on each load.
+    function computePkgPrefix() {
+      const names = new Set();
+      loadedResults.forEach(r => {
+        names.add(r.analyzedPackage.name);
+        r.interactions.forEach(i => names.add(i.target.package));
+      });
+      const segs = Array.from(names).filter(Boolean).map(n => n.split('-'));
+      if (segs.length < 2) { pkgPrefixCount = 0; return; }
+      const minLen = Math.min(...segs.map(s => s.length));
+      let common = 0;
+      for (let k = 0; k < minLen; k++) {
+        if (segs.every(s => s[k] === segs[0][k])) common++; else break;
+      }
+      pkgPrefixCount = Math.max(0, Math.min(common, minLen - 1));   // always leave ≥1 segment
+    }
+
+    function shortPkg(name) {
+      if (!name || pkgPrefixCount === 0) return name;
+      const segs = name.split('-');
+      return segs.length > pkgPrefixCount ? segs.slice(pkgPrefixCount).join('-') : name;
+    }
 
     // ============================== load ==============================
     document.getElementById('file').addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       if (!files.length) return;
       loadedResults = await Promise.all(files.map(async f => JSON.parse(await f.text())));
+      computePkgPrefix();
       renderTable();
+      renderHighlights();
+      renderDiff();
+      graphDirty = true;                  // rebuild graph on next visit to the Graph tab
+      if (document.getElementById('app').dataset.tab === 'graph') { renderGraph(); graphDirty = false; }
       applyTableSearch();    // re-apply current search query to the newly-rendered rows
       const total = loadedResults.reduce((s, r) => s + r.summary.totalInteractions, 0);
       document.getElementById('status').textContent =
@@ -161,13 +344,31 @@
     });
 
     function applyTableSearch() {
-      const rows = document.querySelectorAll('#tableView tbody tr');
-      rows.forEach(tr => {
+      // Summary tab: filter target-package rows of the summary table.
+      document.querySelectorAll('#tableView tbody tr').forEach(tr => {
         if (!searchQuery) { tr.style.display = ''; return; }
         const pkg = (tr.dataset.target || '').toLowerCase();
         tr.style.display = pkg.includes(searchQuery) ? '' : 'none';
       });
+      // Highlights tab: filter non-consuming groups and dependency-table rows by package name.
+      document.querySelectorAll('#highlightsView [data-pkg]').forEach(el => {
+        if (!searchQuery) { el.style.display = ''; return; }
+        el.style.display = (el.dataset.pkg || '').toLowerCase().includes(searchQuery) ? '' : 'none';
+      });
     }
+
+    // ============================== tabs ==============================
+    function switchTab(name) {
+      document.getElementById('app').dataset.tab = name;
+      document.querySelectorAll('.tab').forEach(b =>
+        b.classList.toggle('active', b.dataset.tab === name));
+      if (name === 'graph') {
+        if (graphDirty) { renderGraph(); graphDirty = false; }
+        else if (cy) { cy.resize(); cy.fit(undefined, 40); }   // canvas was hidden; refit on reshow
+      }
+    }
+    document.querySelectorAll('.tab').forEach(b =>
+      b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
     // ============================== table ==============================
     function renderTable() {
@@ -200,14 +401,14 @@
         if (rows.length === 0) {
           return `
             <div class="jsonSection">
-              <h3>${escapeHtml(r.analyzedPackage.name)} <span class="meta">${escapeHtml(r.analyzedPackage.version)} · no cross-package interactions</span></h3>
+              <h3 title="${escapeHtml(r.analyzedPackage.name)}">${escapeHtml(shortPkg(r.analyzedPackage.name))} <span class="meta">${escapeHtml(r.analyzedPackage.version)} · no cross-package interactions</span></h3>
             </div>
           `;
         }
 
         return `
           <div class="jsonSection">
-            <h3>${escapeHtml(r.analyzedPackage.name)}
+            <h3 title="${escapeHtml(r.analyzedPackage.name)}">${escapeHtml(shortPkg(r.analyzedPackage.name))}
               <span class="meta">${escapeHtml(r.analyzedPackage.version)} · ${r.summary.totalInteractions} interactions across ${rows.length} target package${rows.length === 1 ? '' : 's'}</span>
             </h3>
             <table class="findings-table">
@@ -222,7 +423,7 @@
               <tbody>
                 ${rows.map(row => `
                   <tr data-json="${ri}" data-target="${escapeHtml(row.name)}">
-                    <td class="pkg-cell">${escapeHtml(row.name)}</td>
+                    <td class="pkg-cell" title="${escapeHtml(row.name)}">${escapeHtml(shortPkg(row.name))}</td>
                     <td>${escapeHtml(row.version || '')}</td>
                     ${typeCols.map(t => {
                       const c = row.byType[t] || 0;
@@ -269,6 +470,550 @@
       });
     }
 
+    // ============================== highlights ==============================
+    // Identity string for a non-consuming choice / drill-down target.
+    function targetLabel(t) {
+      const tmpl = t.template || t.interface || '?';
+      return `${t.module}.${tmpl}${t.choice ? '.' + t.choice : ''}`;
+    }
+
+    function renderHighlights() {
+      const container = document.getElementById('highlightsView');
+      if (!loadedResults.length) {
+        container.innerHTML = '<div class="tableEmpty">Load one or more analyzer JSONs to see the highlights.</div>';
+        return;
+      }
+      container.innerHTML = renderOverview() + renderNonConsuming() + renderDependencyTable() + '<div id="drilldown"></div>';
+
+      // Clicking a dependency chip renders the specialized table below.
+      container.querySelectorAll('.dep-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const wasSelected = chip.classList.contains('selected');
+          container.querySelectorAll('.dep-chip.selected').forEach(c => c.classList.remove('selected'));
+          if (wasSelected) {                       // click again to close
+            document.getElementById('drilldown').innerHTML = '';
+            return;
+          }
+          chip.classList.add('selected');
+          renderDrilldown(+chip.dataset.json, chip.dataset.dep);
+        });
+      });
+    }
+
+    // Overview band: at-a-glance aggregate stats across all loaded DARs.
+    function renderOverview() {
+      const allFindings = loadedResults.flatMap(r => r.interactions);
+      const externalPkgs = new Set(allFindings.map(i => i.target.package));
+      const nonConsuming = new Set(
+        allFindings.filter(i => i.target.consuming === false).map(i => i.target.package + '|' + targetLabel(i.target))
+      );
+      const byType = {};
+      allFindings.forEach(i => { byType[i.type] = (byType[i.type] || 0) + 1; });
+      const typeChips = Object.entries(byType).sort((a, b) => b[1] - a[1])
+        .map(([t, n]) => `<span class="chip">${escapeHtml(t)} <b>${n}</b></span>`).join('');
+
+      const card = (num, lbl, warn) =>
+        `<div class="stat-card${warn ? ' warn' : ''}"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
+
+      return `
+        <div class="overview">
+          ${card(loadedResults.length, 'DAR' + (loadedResults.length === 1 ? '' : 's') + ' analyzed')}
+          ${card(allFindings.length, 'cross-package interactions')}
+          ${card(externalPkgs.size, 'external packages touched')}
+          ${card(nonConsuming.size, 'non-consuming choices', nonConsuming.size > 0)}
+        </div>
+        ${typeChips ? `<div class="type-bar">${typeChips}</div>` : ''}`;
+    }
+
+    // Section A: non-consuming choices, grouped by the package that DEFINES them (target package).
+    function renderNonConsuming() {
+      const byPkg = new Map();   // pkg -> { version, funcs: Map<label, count> }
+      loadedResults.flatMap(r => r.interactions)
+        .filter(i => i.target.consuming === false)
+        .forEach(i => {
+          const key = i.target.package;
+          if (!byPkg.has(key)) byPkg.set(key, { version: i.target.version, funcs: new Map() });
+          const g = byPkg.get(key);
+          const label = targetLabel(i.target);
+          g.funcs.set(label, (g.funcs.get(label) || 0) + 1);
+        });
+
+      let body;
+      if (byPkg.size === 0) {
+        body = '<p class="hint">No non-consuming choices found in the loaded findings.</p>';
+      } else {
+        body = Array.from(byPkg.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([pkg, g]) => {
+            const funcs = Array.from(g.funcs.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+            return `
+              <div class="jsonSection" data-pkg="${escapeHtml(pkg)}">
+                <h3 title="${escapeHtml(pkg)}">${escapeHtml(shortPkg(pkg))}
+                  <span class="meta">${escapeHtml(g.version || '')} · ${funcs.length} non-consuming choice${funcs.length === 1 ? '' : 's'}</span>
+                </h3>
+                ${funcs.map(([label, count]) => `
+                  <div class="nc-func">
+                    <span class="pill nonconsuming">non-consuming</span> ${escapeHtml(label)}
+                    <span class="count">${count}×</span>
+                  </div>`).join('')}
+              </div>`;
+          }).join('');
+      }
+      return `<h2 style="font-size:13px;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 12px;">Non-consuming choices</h2>${body}`;
+    }
+
+    // Section B: for each analyzed package, the distinct packages it interacts with (clickable).
+    function renderDependencyTable() {
+      const rows = loadedResults.map((r, ri) => {
+        const deps = Array.from(new Set(r.interactions.map(i => i.target.package))).sort();
+        const chips = deps.length
+          ? deps.map(d => `<span class="dep-chip" data-pkg="${escapeHtml(d)}" data-json="${ri}" data-dep="${escapeHtml(d)}" title="${escapeHtml(d)}">${escapeHtml(shortPkg(d))}</span>`).join('')
+          : '<span class="dep-none">·</span>';
+        return `
+          <tr>
+            <td class="pkg-cell" title="${escapeHtml(r.analyzedPackage.name)}">${escapeHtml(shortPkg(r.analyzedPackage.name))} <span class="meta">${escapeHtml(r.analyzedPackage.version)}</span></td>
+            <td class="targets">${chips}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <h2 style="font-size:13px;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin:32px 0 12px;">Package dependencies</h2>
+        <p class="hint" style="margin:0 0 8px;">Click a dependency to see every interaction between the two packages.</p>
+        <table class="findings-table">
+          <thead><tr><th>Package</th><th>Interacts with</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // Specialized table for a (analyzed package, dependency) pair:
+    // rows = callers, columns = interaction type, cell = distinct target callee(s).
+    function renderDrilldown(jsonIdx, depPackage) {
+      const r = loadedResults[jsonIdx];
+      const subset = r.interactions.filter(i => i.target.package === depPackage);
+      const typeCols = Array.from(new Set(subset.map(i => i.type))).sort();
+
+      const byCaller = new Map();   // callerLabel -> Map<type, Set<targetLabel>>
+      subset.forEach(i => {
+        const caller = `${i.caller.module}.${i.caller.template || '?'}.${i.caller.choice || '?'}`;
+        if (!byCaller.has(caller)) byCaller.set(caller, new Map());
+        const row = byCaller.get(caller);
+        if (!row.has(i.type)) row.set(i.type, new Set());
+        row.get(i.type).add(targetLabel(i.target));
+      });
+      const callers = Array.from(byCaller.keys()).sort();
+
+      document.getElementById('drilldown').innerHTML = `
+        <div class="jsonSection">
+          <h3 title="${escapeHtml(r.analyzedPackage.name)} → ${escapeHtml(depPackage)}">${escapeHtml(shortPkg(r.analyzedPackage.name))} <span class="meta">→ ${escapeHtml(shortPkg(depPackage))} · ${subset.length} interaction${subset.length === 1 ? '' : 's'}</span></h3>
+          <table class="findings-table">
+            <thead>
+              <tr><th>Caller</th>${typeCols.map(t => `<th>${escapeHtml(t)}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+              ${callers.map(caller => {
+                const row = byCaller.get(caller);
+                return `<tr>
+                  <td class="pkg-cell">${escapeHtml(caller)}</td>
+                  ${typeCols.map(t => {
+                    const set = row.get(t);
+                    return set
+                      ? `<td class="targets">${Array.from(set).sort().map(escapeHtml).join('<br>')}</td>`
+                      : `<td class="targets empty">·</td>`;
+                  }).join('')}
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    // ============================== graph tab ==============================
+    // Cytoscape + fcose are loaded lazily from CDN only when the Graph tab is first opened,
+    // so the table/highlights/diff tabs keep working offline with zero dependencies.
+    function loadCytoscape() {
+      if (window.cytoscape) return Promise.resolve();
+      const add = src => new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+      return add('https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js')
+        .then(() => add('https://cdn.jsdelivr.net/npm/layout-base/layout-base.js'))
+        .then(() => add('https://cdn.jsdelivr.net/npm/cose-base/cose-base.js'))
+        .then(() => add('https://cdn.jsdelivr.net/npm/cytoscape-fcose/cytoscape-fcose.min.js'))
+        .then(() => { if (window.cytoscapeFcose) window.cytoscape.use(window.cytoscapeFcose); });
+    }
+
+    function renderGraph() {
+      const container = document.getElementById('graphView');
+      if (!loadedResults.length) {
+        container.innerHTML = '<div id="graphEmpty">Load analyzer JSONs to see the package graph.</div>';
+        return;
+      }
+      container.innerHTML = '<div id="graphEmpty">Loading graph…</div>';
+      loadCytoscape().then(() => {
+        container.innerHTML = '<div id="cy"></div>' + graphLegendHtml() + '<div id="graphDetails" class="graph-details"></div>';
+        cy = window.cytoscape({
+          container: document.getElementById('cy'),
+          elements: buildGraphElements(),
+          style: graphStyle(),
+          layout: {
+            name: window.cytoscapeFcose ? 'fcose' : 'cose',
+            animate: false, padding: 40, nodeSeparation: 140, idealEdgeLength: 150, nodeRepulsion: 9000
+          },
+          wheelSensitivity: 0.2
+        });
+        cy.on('tap', 'node', e => showGraphNodeDetails(e.target.id()));
+        cy.on('tap', 'edge', e => showGraphEdgeDetails(e.target.data('source'), e.target.data('target')));
+        cy.on('tap', e => { if (e.target === cy) hideDetails('graphDetails'); });
+      }).catch(() => {
+        container.innerHTML = '<div id="graphEmpty">Could not load the graph library — it needs internet access on first use.</div>';
+      });
+    }
+
+    // Package-level graph: one node per package, one edge per (analyzed pkg → target pkg) pair,
+    // labelled with the interaction count. Deliberately NOT template-level — that was unreadable
+    // on dense corpora. Edge turns red if any interaction in it is non-consuming.
+    function buildGraphElements() {
+      const analyzed = new Set(loadedResults.map(r => r.analyzedPackage.name));
+      const nodeIds = new Set();
+      const edges = new Map();
+      loadedResults.forEach(r => {
+        const src = r.analyzedPackage.name;
+        nodeIds.add(src);
+        r.interactions.forEach(i => {
+          const tgt = i.target.package;
+          nodeIds.add(tgt);
+          const key = src + '|' + tgt;
+          if (!edges.has(key)) edges.set(key, { src, tgt, count: 0, nc: false });
+          const e = edges.get(key);
+          e.count++;
+          if (i.target.consuming === false) e.nc = true;
+        });
+      });
+      const nodeEls = Array.from(nodeIds).map(name => ({
+        data: { id: name, label: shortPkg(name), analyzed: analyzed.has(name) ? 'true' : 'false' }
+      }));
+      const edgeEls = Array.from(edges.values()).map((e, idx) => ({
+        data: { id: 'ge' + idx, source: e.src, target: e.tgt, label: e.count + '×', nc: e.nc ? 'true' : 'false' }
+      }));
+      return [...nodeEls, ...edgeEls];
+    }
+
+    function graphStyle() {
+      return [
+        { selector: 'node', style: {
+            'shape': 'roundrectangle', 'background-color': '#fff', 'border-color': '#ccc', 'border-width': 1,
+            'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center', 'font-size': 12,
+            'padding': '8px', 'width': 'label', 'height': 'label', 'color': '#333'
+        }},
+        { selector: 'node[analyzed="true"]', style: { 'background-color': '#e3f2fd', 'border-color': '#1976d2', 'border-width': 2 } },
+        { selector: 'edge', style: {
+            'width': 1.5, 'line-color': '#888', 'target-arrow-color': '#888', 'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier', 'label': 'data(label)', 'font-size': 11, 'color': '#555',
+            'text-background-color': '#fff', 'text-background-opacity': 0.9, 'text-background-padding': 2
+        }},
+        { selector: 'edge[nc="true"]', style: { 'line-color': '#d32f2f', 'target-arrow-color': '#d32f2f', 'color': '#a33' } }
+      ];
+    }
+
+    function graphLegendHtml() {
+      return `<div id="graphLegend">
+        <div><span class="sw analyzed"></span>analyzed package</div>
+        <div><span class="sw dep"></span>dependency</div>
+        <div><span class="sw line"></span>interactions (count on edge)</div>
+        <div><span class="sw line nc"></span>includes non-consuming</div>
+      </div>`;
+    }
+
+    // ---- shared detail helpers (used by both graphs' click-to-inspect overlays) ----
+    function hideDetails(id) {
+      const el = document.getElementById(id);
+      if (el) { el.classList.remove('show'); el.innerHTML = ''; }
+    }
+    function showDetails(id, html) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = `<span class="close" title="close">×</span>${html}`;
+      el.classList.add('show');
+      el.querySelector('.close').addEventListener('click', () => hideDetails(id));
+    }
+    function typeChips(list) {
+      const by = {};
+      list.forEach(i => { by[i.type] = (by[i.type] || 0) + 1; });
+      return Object.entries(by).sort((a, b) => b[1] - a[1])
+        .map(([t, n]) => `<span class="pill">${escapeHtml(t)} ${n}</span>`).join(' ');
+    }
+    function fmtInteraction(i) {
+      const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}.${i.caller.choice || '?'}`;
+      const tgt = `${shortPkg(i.target.package)}:${i.target.module}.${i.target.template || i.target.interface || '?'}${i.target.choice ? '.' + i.target.choice : ''}`;
+      const nc = i.target.consuming === false ? ' <span class="pill nonconsuming" style="font-size:10px;">non-consuming</span>' : '';
+      return `<span class="pill">${escapeHtml(i.type)}</span> ${escapeHtml(caller)} <span class="arrow">→</span> ${escapeHtml(tgt)}${nc}`;
+    }
+
+    // Main graph: clicking a package node summarizes its incoming / outgoing interactions.
+    function showGraphNodeDetails(pkg) {
+      const incoming = [];   // interactions targeting this package
+      const outgoing = [];   // interactions made BY this package (it is an analyzed source)
+      const sources  = new Set();
+      const targets  = new Set();
+      loadedResults.forEach(r => {
+        const src = r.analyzedPackage.name;
+        r.interactions.forEach(i => {
+          if (i.target.package === pkg) { incoming.push(i); sources.add(src); }
+          if (src === pkg)             { outgoing.push(i); targets.add(i.target.package); }
+        });
+      });
+      const isAnalyzed = loadedResults.some(r => r.analyzedPackage.name === pkg);
+      let html = `<h4>${escapeHtml(shortPkg(pkg))}</h4><div class="muted">${isAnalyzed ? 'analyzed package' : 'dependency'} · ${escapeHtml(pkg)}</div>`;
+      if (outgoing.length) {
+        html += `<div class="gd-sec">Outgoing — ${outgoing.length} interaction${outgoing.length === 1 ? '' : 's'} to ${targets.size} package${targets.size === 1 ? '' : 's'}</div><div>${typeChips(outgoing)}</div>`;
+      }
+      if (incoming.length) {
+        html += `<div class="gd-sec">Incoming — ${incoming.length} interaction${incoming.length === 1 ? '' : 's'} from ${sources.size} package${sources.size === 1 ? '' : 's'}</div><div>${typeChips(incoming)}</div>`;
+      }
+      if (!outgoing.length && !incoming.length) html += '<div class="muted">No interactions.</div>';
+      showDetails('graphDetails', html);
+    }
+
+    // Main graph: clicking an edge lists the interactions between that package pair.
+    function showGraphEdgeDetails(src, tgt) {
+      const list = [];
+      loadedResults.forEach(r => {
+        if (r.analyzedPackage.name !== src) return;
+        r.interactions.forEach(i => { if (i.target.package === tgt) list.push(i); });
+      });
+      const head = `<h4>${escapeHtml(shortPkg(src))} <span class="arrow">→</span> ${escapeHtml(shortPkg(tgt))}</h4>
+        <div class="muted">${list.length} interaction${list.length === 1 ? '' : 's'}</div><div>${typeChips(list)}</div>`;
+      const rows = list.map(i => `<div class="gd-row">${fmtInteraction(i)}</div>`).join('');
+      showDetails('graphDetails', head + '<div class="gd-sec">Findings</div>' + rows);
+    }
+
+    // ============================== diff tab ==============================
+    function cmpVersion(a, b) {
+      const pa = String(a).split('.').map(n => parseInt(n, 10));
+      const pb = String(b).split('.').map(n => parseInt(n, 10));
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const x = pa[i] || 0, y = pb[i] || 0;
+        if (x !== y) return x - y;
+      }
+      return String(a).localeCompare(String(b));
+    }
+
+    // Identity of an interaction for diffing — deliberately excludes source line numbers
+    // (they shift between versions) and the target's version (a dep bump is not a behavior change).
+    function diffKey(i) {
+      const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}.${i.caller.choice || '?'}`;
+      const tgt    = `${i.target.package}.${i.target.module}.${i.target.template || i.target.interface || '?'}${i.target.choice ? '.' + i.target.choice : ''}`;
+      return `${i.type}|${caller}|${tgt}|${i.target.consuming}`;
+    }
+    function indexByKey(interactions) {
+      const m = new Map();
+      interactions.forEach(i => { const k = diffKey(i); if (!m.has(k)) m.set(k, i); });
+      return m;
+    }
+
+    function renderDiff() {
+      const container = document.getElementById('diffView');
+      if (!loadedResults.length) {
+        container.innerHTML = '<div class="tableEmpty">Load analyzer JSONs to compare versions.</div>';
+        return;
+      }
+      // Group by package name; comparable groups have ≥2 versions.
+      const groups = new Map();
+      loadedResults.forEach(r => {
+        const n = r.analyzedPackage.name;
+        if (!groups.has(n)) groups.set(n, []);
+        groups.get(n).push(r);
+      });
+      diffGroups = new Map(Array.from(groups.entries()).filter(([, rs]) => rs.length >= 2));
+      diffGroups.forEach(rs => rs.sort((a, b) => cmpVersion(a.analyzedPackage.version, b.analyzedPackage.version)));
+
+      if (diffGroups.size === 0) {
+        container.innerHTML = '<div class="tableEmpty">Load two or more versions of the same package (same name, different versions) to see what changed.</div>';
+        return;
+      }
+
+      const pkgNames = Array.from(diffGroups.keys());
+      const pkgSel = pkgNames.length > 1
+        ? `<select id="diffPkg">${pkgNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(shortPkg(n))}</option>`).join('')}</select>`
+        : `<strong title="${escapeHtml(pkgNames[0])}">${escapeHtml(shortPkg(pkgNames[0]))}</strong>`;
+      container.innerHTML = `
+        <div class="diff-controls">
+          <span>Package:</span> ${pkgSel}
+          <span>from</span> <select id="diffFrom"></select>
+          <span class="arrow">→</span>
+          <span>to</span> <select id="diffTo"></select>
+        </div>
+        <div id="diffResult"></div>`;
+      const pkgEl = document.getElementById('diffPkg');
+      if (pkgEl) pkgEl.addEventListener('change', () => populateVersionSelects(pkgEl.value));
+      document.getElementById('diffFrom').addEventListener('change', renderDiffResult);
+      document.getElementById('diffTo').addEventListener('change', renderDiffResult);
+      populateVersionSelects(pkgNames[0]);
+    }
+
+    function populateVersionSelects(pkgName) {
+      const rs = diffGroups.get(pkgName);
+      const opts = rs.map((r, i) => `<option value="${i}">${escapeHtml(r.analyzedPackage.version)}</option>`).join('');
+      const fromSel = document.getElementById('diffFrom');
+      const toSel   = document.getElementById('diffTo');
+      fromSel.innerHTML = opts;
+      toSel.innerHTML   = opts;
+      fromSel.value = '0';                       // oldest
+      toSel.value   = String(rs.length - 1);     // newest
+      renderDiffResult();
+    }
+
+    function renderDiffResult() {
+      const pkgEl   = document.getElementById('diffPkg');
+      const pkgName = pkgEl ? pkgEl.value : Array.from(diffGroups.keys())[0];
+      const rs      = diffGroups.get(pkgName);
+      const fromR   = rs[+document.getElementById('diffFrom').value];
+      const toR     = rs[+document.getElementById('diffTo').value];
+
+      const fromMap = indexByKey(fromR.interactions);
+      const toMap   = indexByKey(toR.interactions);
+      const added = [], removed = [];
+      toMap.forEach((i, k)   => { if (!fromMap.has(k)) added.push(i); });
+      fromMap.forEach((i, k) => { if (!toMap.has(k)) removed.push(i); });
+      const bySig = (a, b) => diffKey(a).localeCompare(diffKey(b));
+      added.sort(bySig); removed.sort(bySig);
+      const unchanged = Array.from(toMap.keys()).filter(k => fromMap.has(k)).length;
+
+      const fmt = (i) => {
+        const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}.${i.caller.choice || '?'}`;
+        const tgt = `${shortPkg(i.target.package)}:${i.target.module}.${i.target.template || i.target.interface || '?'}${i.target.choice ? '.' + i.target.choice : ''}`;
+        const nc = i.target.consuming === false ? ' <span class="pill nonconsuming" style="font-size:10px;">non-consuming</span>' : '';
+        return `<span class="pill">${escapeHtml(i.type)}</span> ${escapeHtml(caller)} <span class="arrow">→</span> ${escapeHtml(tgt)}${nc}`;
+      };
+      const rows = (arr, cls, sign) => arr.length
+        ? arr.map(i => `<div class="diff-row ${cls}"><span class="sign">${sign}</span>${fmt(i)}</div>`).join('')
+        : '<div class="diff-unchanged">none</div>';
+
+      const same = fromR.analyzedPackage.version === toR.analyzedPackage.version;
+      if (same) {
+        document.getElementById('diffResult').innerHTML = '<div class="diff-unchanged">Pick two different versions to compare.</div>';
+        return;
+      }
+      document.getElementById('diffResult').innerHTML = `
+        <div id="diffGraphWrap"><div id="diffGraphLoading">Loading diff graph…</div></div>
+        <div class="diff-section">
+          <h3>Added <span class="diff-count">${added.length}</span></h3>
+          ${rows(added, 'added', '+')}
+        </div>
+        <div class="diff-section">
+          <h3>Removed <span class="diff-count">${removed.length}</span></h3>
+          ${rows(removed, 'removed', '−')}
+        </div>
+        <div class="diff-unchanged">${unchanged} interaction${unchanged === 1 ? '' : 's'} unchanged.</div>`;
+
+      renderDiffGraph(toR, fromMap, toMap);
+    }
+
+    // Star graph of the diff: analyzed package in the center, each target package around it,
+    // edges colored by what changed in the interactions to that package.
+    function renderDiffGraph(toR, fromMap, toMap) {
+      const wrap = document.getElementById('diffGraphWrap');
+      loadCytoscape().then(() => {
+        // Per target package: count added / removed / unchanged interactions.
+        const stat = new Map();   // pkg -> {added, removed, unchanged}
+        const bump = (pkg, field) => {
+          if (!stat.has(pkg)) stat.set(pkg, { added: 0, removed: 0, unchanged: 0 });
+          stat.get(pkg)[field]++;
+        };
+        toMap.forEach((i, k)   => bump(i.target.package, fromMap.has(k) ? 'unchanged' : 'added'));
+        fromMap.forEach((i, k) => { if (!toMap.has(k)) bump(i.target.package, 'removed'); });
+
+        const center = toR.analyzedPackage.name;
+        const nodes = [{ data: { id: center, label: shortPkg(center), role: 'center' } }];
+        const edges = [];
+        let idx = 0;
+        stat.forEach((s, pkg) => {
+          // node newness: present only in `to` = new; only in `from` = gone; else existing.
+          const nodeKind = (s.added > 0 && s.unchanged === 0 && s.removed === 0) ? 'new'
+                         : (s.removed > 0 && s.unchanged === 0 && s.added === 0) ? 'gone'
+                         : 'existing';
+          nodes.push({ data: { id: pkg, label: shortPkg(pkg), role: nodeKind } });
+
+          // edge status from the change mix.
+          const status = (s.added > 0 && s.removed === 0 && s.unchanged === 0) ? 'added'
+                       : (s.removed > 0 && s.added === 0 && s.unchanged === 0) ? 'removed'
+                       : (s.added > 0 || s.removed > 0) ? 'changed'
+                       : 'unchanged';
+          const parts = [];
+          if (s.added)   parts.push('+' + s.added);
+          if (s.removed) parts.push('−' + s.removed);
+          if (!parts.length) parts.push(s.unchanged + '×');
+          edges.push({ data: { id: 'de' + (idx++), source: center, target: pkg, label: parts.join(' '), status } });
+        });
+
+        wrap.innerHTML = '<div id="diffCy"></div>' + diffGraphLegendHtml() + '<div id="diffGraphDetails" class="graph-details"></div>';
+        if (diffCy) { diffCy.destroy(); diffCy = null; }
+        diffCy = window.cytoscape({
+          container: document.getElementById('diffCy'),
+          elements: [...nodes, ...edges],
+          style: diffGraphStyle(),
+          layout: { name: window.cytoscapeFcose ? 'fcose' : 'cose', animate: false, padding: 40, nodeSeparation: 130, idealEdgeLength: 150 },
+          wheelSensitivity: 0.2
+        });
+        diffCy.on('tap', 'node', e => showDiffNodeDetails(e.target.id(), center, fromMap, toMap));
+        diffCy.on('tap', 'edge', e => showDiffNodeDetails(e.target.data('target'), center, fromMap, toMap));
+        diffCy.on('tap', e => { if (e.target === diffCy) hideDetails('diffGraphDetails'); });
+      }).catch(() => {
+        wrap.innerHTML = '<div id="diffGraphLoading">Could not load the graph library — it needs internet access on first use. The lists below still work.</div>';
+      });
+    }
+
+    function diffGraphStyle() {
+      return [
+        { selector: 'node', style: {
+            'shape': 'roundrectangle', 'background-color': '#fff', 'border-color': '#ccc', 'border-width': 1,
+            'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center', 'font-size': 12,
+            'padding': '8px', 'width': 'label', 'height': 'label', 'color': '#333'
+        }},
+        { selector: 'node[role="center"]',   style: { 'background-color': '#e3f2fd', 'border-color': '#1976d2', 'border-width': 2 } },
+        { selector: 'node[role="new"]',      style: { 'border-color': '#2e9e4f', 'border-width': 2 } },
+        { selector: 'node[role="gone"]',     style: { 'border-color': '#d32f2f', 'border-width': 2, 'border-style': 'dashed', 'color': '#a33' } },
+        { selector: 'edge', style: {
+            'width': 2, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle',
+            'label': 'data(label)', 'font-size': 11,
+            'text-background-color': '#fff', 'text-background-opacity': 0.9, 'text-background-padding': 2,
+            'line-color': '#bbb', 'target-arrow-color': '#bbb', 'color': '#888'
+        }},
+        { selector: 'edge[status="added"]',   style: { 'line-color': '#2e9e4f', 'target-arrow-color': '#2e9e4f', 'color': '#2e7d40', 'width': 3 } },
+        { selector: 'edge[status="removed"]', style: { 'line-color': '#d32f2f', 'target-arrow-color': '#d32f2f', 'color': '#a33', 'line-style': 'dashed', 'width': 3 } },
+        { selector: 'edge[status="changed"]', style: { 'line-color': '#f9a825', 'target-arrow-color': '#f9a825', 'color': '#a07000', 'width': 3 } }
+      ];
+    }
+
+    function diffGraphLegendHtml() {
+      return `<div id="diffGraphLegend">
+        <div><span class="sw added"></span>added</div>
+        <div><span class="sw removed"></span>removed</div>
+        <div><span class="sw changed"></span>changed (both)</div>
+        <div><span class="sw"></span>unchanged</div>
+      </div>`;
+    }
+
+    // Diff graph: clicking a target package lists exactly what changed in interactions to it.
+    function showDiffNodeDetails(pkg, center, fromMap, toMap) {
+      if (pkg === center) {
+        showDetails('diffGraphDetails', `<h4>${escapeHtml(shortPkg(pkg))}</h4><div class="muted">analyzed package — click a surrounding package to see what changed for it.</div>`);
+        return;
+      }
+      const added = [], removed = [], unchanged = [];
+      toMap.forEach((i, k)   => { if (i.target.package === pkg) (fromMap.has(k) ? unchanged : added).push(i); });
+      fromMap.forEach((i, k) => { if (i.target.package === pkg && !toMap.has(k)) removed.push(i); });
+
+      let html = `<h4>${escapeHtml(shortPkg(pkg))}</h4>
+        <div class="muted">+${added.length} added · −${removed.length} removed · ${unchanged.length} unchanged</div>`;
+      if (added.length)   html += `<div class="gd-sec added">Added</div>` + added.map(i => `<div class="gd-row">${fmtInteraction(i)}</div>`).join('');
+      if (removed.length) html += `<div class="gd-sec removed">Removed</div>` + removed.map(i => `<div class="gd-row">${fmtInteraction(i)}</div>`).join('');
+      if (!added.length && !removed.length) html += '<div class="muted">No changes — all interactions to this package are unchanged.</div>';
+      showDetails('diffGraphDetails', html);
+    }
+
     // ============================== findings panel ==============================
     function showFindings(findings, title) {
       const count = findings.length;
@@ -287,7 +1032,7 @@
         ${findings.map(f => `
           <div class="finding">
             <div>
-              <span class="caller">${escapeHtml(f.caller.module)}.${escapeHtml(f.caller.template || '?')}.${escapeHtml(f.caller.choice || '?')}</span>
+              <span class="caller">${escapeHtml(f.caller.module)}.${escapeHtml(f.caller.template || f.caller.interface || '?')}.${escapeHtml(f.caller.choice || '?')}</span>
               <span class="arrow">→</span>
               <span class="target">${escapeHtml(f.target.module)}.${escapeHtml(f.target.template || f.target.interface || '?')}${f.target.choice ? '.' + escapeHtml(f.target.choice) : ''}</span>
             </div>
@@ -344,7 +1089,10 @@
     })();
 
     // ============================== startup ==============================
+    computePkgPrefix();
     renderTable();
+    renderHighlights();
+    renderDiff();
   </script>
 </body>
 </html>

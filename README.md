@@ -54,3 +54,6 @@ dot -Tpng path/to/foo.dot -o path/to/foo.png
 ```bash
 sbt test
 ```
+
+### AI Acknowledgement
+Claude Code, Codex, Gemini, Copilot, and ChatGPT were used for assistance at various points. All suggestions were reviewed by the authors.
