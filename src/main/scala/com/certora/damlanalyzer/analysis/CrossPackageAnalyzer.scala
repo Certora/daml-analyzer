@@ -83,7 +83,7 @@ object CrossPackageAnalyzer {
     val interactions = (updateInteractions ++ implementsInterfaceInteractions).distinct
 
     val deps = dar.all.collect {
-      case (id, pkg) if id != mainPkgId && !isStdlib(pkg.metadata.name.toString) =>
+      case (id, pkg) if id != mainPkgId && !Stdlib.isStdlib(pkg.metadata.name.toString) =>
         PackageRef(
           name      = pkg.metadata.name.toString,
           version   = pkg.metadata.version.toString,
@@ -170,30 +170,28 @@ object CrossPackageAnalyzer {
   // consuming for exercise variants — looked up on the target choice's definition.
   // Templates and interfaces both store choices with a consuming Boolean.
   private def consumingOf(updt: Ast.Update, pkgsById: Map[PackageId, Ast.Package]): Option[Boolean] = {
-    def lookupTemplate(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
+    def lookupTemplate(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Option[Boolean] = {
       val qualNm = tcid.qualifiedName
       pkgsById.get(tcid.packageId)
         .flatMap(_.modules.get(qualNm.module))
         .flatMap(_.templates.get(qualNm.name))
         .flatMap(_.choices.get(choice))
         .map(_.consuming)
-        .getOrElse(false)
     }
 
-    def lookupInterface(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
+    def lookupInterface(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Option[Boolean] = {
       val qualNm = tcid.qualifiedName
       pkgsById.get(tcid.packageId)
         .flatMap(_.modules.get(qualNm.module))
         .flatMap(_.interfaces.get(qualNm.name))
         .flatMap(_.choices.get(choice))
         .map(_.consuming)
-        .getOrElse(false)
     }
 
     updt match {
-      case Ast.UpdateExercise(tcid, choice, _, _)             => Some(lookupTemplate(tcid, choice))
-      case Ast.UpdateExerciseByKey(tcid, choice, _, _)        => Some(lookupTemplate(tcid, choice))
-      case Ast.UpdateExerciseInterface(tcid, choice, _, _, _) => Some(lookupInterface(tcid, choice))
+      case Ast.UpdateExercise(tcid, choice, _, _)             => lookupTemplate(tcid, choice)
+      case Ast.UpdateExerciseByKey(tcid, choice, _, _)        => lookupTemplate(tcid, choice)
+      case Ast.UpdateExerciseInterface(tcid, choice, _, _, _) => lookupInterface(tcid, choice)
       case _                                                   => None
     }
   }
@@ -210,10 +208,6 @@ object CrossPackageAnalyzer {
 
   private def fileOnlyLocation(modName: String): SourceLocation =
     SourceLocation(file = modName + ".daml")
-
-  // some other helpers
-  private def isStdlib(name: String): Boolean =
-    name.startsWith("daml-prim") || name.startsWith("daml-stdlib") || name.startsWith("ghc-stdlib")
 
   private def summaryOf(interactions: List[CrossPackageInteraction]): Summary = {
     val byType = interactions

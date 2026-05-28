@@ -60,10 +60,7 @@ object ExprWalker {
   }
 
   private def isStdlibPkgId(pkgId: PackageId, ctx: WalkCtx): Boolean =
-    ctx.pkgsById.get(pkgId).exists { pkg =>
-      val name = pkg.metadata.name.toString
-      name.startsWith("daml-prim") || name.startsWith("daml-stdlib") || name.startsWith("ghc-stdlib") || name.startsWith("ghc-prim")
-    }
+    ctx.pkgsById.get(pkgId).exists(pkg => Stdlib.isStdlib(pkg.metadata.name.toString))
 
   private def findInteractionsInUpdate(u: Ast.Update, currentLoc: Option[Ref.Location], ctx: WalkCtx): List[(Option[Ref.Location], Ast.Update)] = u match {
     case Ast.UpdateExercise(_, _, cidE, argE) =>
