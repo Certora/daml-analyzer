@@ -50,7 +50,7 @@ object CrossPackageAnalyzer {
         iType <- interactionTypeOf(f.update)
       } yield {
         val targetPkg = pkgsById.get(tcid.packageId)
-        val qn        = tcid.qualifiedName
+        val qualNm        = tcid.qualifiedName
         val isIface   = isInterfaceTarget(f.update)
         CrossPackageInteraction(
           interactionType = iType,
@@ -68,9 +68,9 @@ object CrossPackageAnalyzer {
             pkg       = targetPkg.map(_.metadata.name.toString).getOrElse("?"),
             version   = targetPkg.map(_.metadata.version.toString).getOrElse("?"),
             packageId = tcid.packageId.toString,
-            module    = qn.module.toString,
-            template  = if (isIface) None else Some(qn.name.toString),
-            interface = if (isIface) Some(qn.name.toString) else None,
+            module    = qualNm.module.toString,
+            template  = if (isIface) None else Some(qualNm.name.toString),
+            interface = if (isIface) Some(qualNm.name.toString) else None,
             choice    = choiceOf(f.update),
             consuming = consumingOf(f.update, pkgsById)
           )
@@ -171,20 +171,20 @@ object CrossPackageAnalyzer {
   // Templates and interfaces both store choices with a consuming Boolean.
   private def consumingOf(updt: Ast.Update, pkgsById: Map[PackageId, Ast.Package]): Option[Boolean] = {
     def lookupTemplate(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
-      val qn = tcid.qualifiedName
+      val qualNm = tcid.qualifiedName
       pkgsById.get(tcid.packageId)
-        .flatMap(_.modules.get(qn.module))
-        .flatMap(_.templates.get(qn.name))
+        .flatMap(_.modules.get(qualNm.module))
+        .flatMap(_.templates.get(qualNm.name))
         .flatMap(_.choices.get(choice))
         .map(_.consuming)
         .getOrElse(false)
     }
 
     def lookupInterface(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
-      val qn = tcid.qualifiedName
+      val qualNm = tcid.qualifiedName
       pkgsById.get(tcid.packageId)
-        .flatMap(_.modules.get(qn.module))
-        .flatMap(_.interfaces.get(qn.name))
+        .flatMap(_.modules.get(qualNm.module))
+        .flatMap(_.interfaces.get(qualNm.name))
         .flatMap(_.choices.get(choice))
         .map(_.consuming)
         .getOrElse(false)

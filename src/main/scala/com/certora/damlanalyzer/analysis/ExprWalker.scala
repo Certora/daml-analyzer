@@ -41,14 +41,14 @@ object ExprWalker {
 
     // Inspect EVals to track function references.
     // NOTE: maybe eventually we need k-CFA or something?
-    case Ast.EVal(qn) =>
-      if (ctx.visited.contains(qn) || isStdlibPkgId(qn.packageId, ctx)) {
+    case Ast.EVal(qualNm) =>
+      if (ctx.visited.contains(qualNm) || isStdlibPkgId(qualNm.packageId, ctx)) {
         Nil
       } else {
-        val newCtx = ctx.copy(visited = ctx.visited + qn)
-        ctx.pkgsById.get(qn.packageId)
-          .flatMap(pkg => pkg.modules.get(qn.qualifiedName.module))
-          .flatMap(mod => mod.definitions.get(qn.qualifiedName.name))
+        val newCtx = ctx.copy(visited = ctx.visited + qualNm)
+        ctx.pkgsById.get(qualNm.packageId)
+          .flatMap(pkg => pkg.modules.get(qualNm.qualifiedName.module))
+          .flatMap(mod => mod.definitions.get(qualNm.qualifiedName.name))
           .map {
             case dv: Ast.DValue => findInteractions(dv.body, currentLoc, newCtx)
             case _ => Nil
