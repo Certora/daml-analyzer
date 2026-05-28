@@ -24,7 +24,8 @@ case class Caller(
   version:   String,
   packageId: String,
   module:    String,
-  template:  Option[String] = None,
+  template:  Option[String] = None,   // set when the caller is a template choice
+  interface: Option[String] = None,   // set when the caller is an interface choice
   choice:    Option[String] = None
 )
 

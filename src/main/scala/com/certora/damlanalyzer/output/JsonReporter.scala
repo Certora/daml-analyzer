@@ -52,6 +52,7 @@ object JsonReporter {
         "packageId" -> c.packageId.asJson,
         "module" -> c.module.asJson,
         "template" -> c.template.asJson,
+        "interface" -> c.interface.asJson,
         "choice" -> c.choice.asJson
       )
     }

@@ -8,57 +8,61 @@ import com.digitalasset.daml.lf.language.Ast
 
 object CrossPackageAnalyzer {
 
+  // The caller is either a
+  // template choice (callerTemplate) or an interface choice (callerInterface).
+  // it cannot be both.
+  private case class RawFinding(
+    module:          String,
+    callerTemplate:  Option[String],
+    callerInterface: Option[String],
+    callerChoice:    Option[String],
+    loc:             Option[Ref.Location],
+    update:          Ast.Update
+  )
+
   def analyze(dar: LoadedDar): AnalysisResult = {
+
     val (mainPkgId, mainPkg) = dar.main
+
     val mainMeta = mainPkg.metadata
+
     val pkgsById: Map[PackageId, Ast.Package] = dar.all.toMap
 
     val walkCtx = WalkCtx(pkgsById = pkgsById)
 
-    val findings: List[(String, Option[String], Option[String], Option[Ref.Location], Ast.Update)] =
+    val findings: List[RawFinding] =
       mainPkg.modules.toList.flatMap { case (modName, mod) =>
         val fromTemplates = mod.templates.toList.flatMap { case (tplName, tpl) =>
-          tpl.choices.values.toList.flatMap { ch =>
-            ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr], None, walkCtx)
-              .map { case (loc, u) =>
-                (modName.toString, Some(tplName.toString), Some(ch.name.toString), loc, u)
-              }
-          }
+          findingsFromChoices(modName.toString, tplName.toString, isInterface = false, tpl.choices.values, walkCtx)
         }
         val fromInterfaces = mod.interfaces.toList.flatMap { case (ifaceName, iface) =>
-          iface.choices.values.toList.flatMap { ch =>
-            ExprWalker.findInteractions(ch.update.asInstanceOf[Ast.Expr], None, walkCtx)
-              .map { case (loc, u) =>
-                (modName.toString, Some(ifaceName.toString), Some(ch.name.toString), loc, u)
-              }
-          }
+          findingsFromChoices(modName.toString, ifaceName.toString, isInterface = true, iface.choices.values, walkCtx)
         }
         fromTemplates ++ fromInterfaces
       }
 
     // only cross-package interactions needed
-    val crossPkg = findings.filter { case (_, _, _, _, u) =>
-      targetTypeConId(u).exists(_.packageId != mainPkgId)
-    }
+    val crossPkg = findings.filter(f => targetTypeConId(f.update).exists(_.packageId != mainPkgId))
 
-    val updateInteractions = crossPkg.flatMap { case (modName, callerTpl, callerChoice, loc, u) =>
+    val updateInteractions = crossPkg.flatMap { f =>
       for {
-        tcid  <- targetTypeConId(u)
-        iType <- interactionTypeOf(u)
+        tcid  <- targetTypeConId(f.update)
+        iType <- interactionTypeOf(f.update)
       } yield {
         val targetPkg = pkgsById.get(tcid.packageId)
         val qn        = tcid.qualifiedName
-        val isIface   = isInterfaceTarget(u)
+        val isIface   = isInterfaceTarget(f.update)
         CrossPackageInteraction(
           interactionType = iType,
-          source          = Some(loc.map(toSchemaLocation).getOrElse(fileOnlyLocation(modName))),
+          source          = Some(f.loc.map(toSchemaLocation).getOrElse(fileOnlyLocation(f.module))),
           caller = Caller(
             pkg       = mainMeta.name.toString,
             version   = mainMeta.version.toString,
             packageId = mainPkgId.toString,
-            module    = modName,
-            template  = callerTpl,
-            choice    = callerChoice
+            module    = f.module,
+            template  = f.callerTemplate,
+            interface = f.callerInterface,
+            choice    = f.callerChoice
           ),
           target = Target(
             pkg       = targetPkg.map(_.metadata.name.toString).getOrElse("?"),
@@ -67,8 +71,8 @@ object CrossPackageAnalyzer {
             module    = qn.module.toString,
             template  = if (isIface) None else Some(qn.name.toString),
             interface = if (isIface) Some(qn.name.toString) else None,
-            choice    = choiceOf(u),
-            consuming = consumingOf(u, pkgsById)
+            choice    = choiceOf(f.update),
+            consuming = consumingOf(f.update, pkgsById)
           )
         )
       }
@@ -99,6 +103,27 @@ object CrossPackageAnalyzer {
       interactions = interactions
     )
   }
+
+  // go over choices and generate `RawFinding`.
+  private def findingsFromChoices(
+    modName:     String,
+    owner:       String,
+    isInterface: Boolean,
+    choices:     Iterable[Ast.TemplateChoice],
+    walkCtx:     WalkCtx
+  ): List[RawFinding] =
+    choices.toList.flatMap { ch =>
+      ExprWalker.findInteractions(ch.update, None, walkCtx).map { case (loc, updt) =>
+        RawFinding(
+          module          = modName,
+          callerTemplate  = Option.when(!isInterface)(owner),
+          callerInterface = Option.when(isInterface)(owner),
+          callerChoice    = Some(ch.name.toString),
+          loc             = loc,
+          update          = updt
+        )
+      }
+    }
 
   // The TypeConId that identifies the cross-package target of an Update
   // either a template or an interface
@@ -144,26 +169,28 @@ object CrossPackageAnalyzer {
 
   // consuming for exercise variants — looked up on the target choice's definition.
   // Templates and interfaces both store choices with a consuming Boolean.
-  private def consumingOf(u: Ast.Update, pkgsById: Map[PackageId, Ast.Package]): Option[Boolean] = {
+  private def consumingOf(updt: Ast.Update, pkgsById: Map[PackageId, Ast.Package]): Option[Boolean] = {
     def lookupTemplate(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
       val qn = tcid.qualifiedName
-      (for {
-        pkg <- pkgsById.get(tcid.packageId)
-        mod <- pkg.modules.get(qn.module)
-        tpl <- mod.templates.get(qn.name)
-        ch  <- tpl.choices.get(choice)
-      } yield ch.consuming).getOrElse(false)
+      pkgsById.get(tcid.packageId)
+        .flatMap(_.modules.get(qn.module))
+        .flatMap(_.templates.get(qn.name))
+        .flatMap(_.choices.get(choice))
+        .map(_.consuming)
+        .getOrElse(false)
     }
+
     def lookupInterface(tcid: Ref.TypeConId, choice: Ref.ChoiceName): Boolean = {
       val qn = tcid.qualifiedName
-      (for {
-        pkg   <- pkgsById.get(tcid.packageId)
-        mod   <- pkg.modules.get(qn.module)
-        iface <- mod.interfaces.get(qn.name)
-        ch    <- iface.choices.get(choice)
-      } yield ch.consuming).getOrElse(false)
+      pkgsById.get(tcid.packageId)
+        .flatMap(_.modules.get(qn.module))
+        .flatMap(_.interfaces.get(qn.name))
+        .flatMap(_.choices.get(choice))
+        .map(_.consuming)
+        .getOrElse(false)
     }
-    u match {
+
+    updt match {
       case Ast.UpdateExercise(tcid, choice, _, _)             => Some(lookupTemplate(tcid, choice))
       case Ast.UpdateExerciseByKey(tcid, choice, _, _)        => Some(lookupTemplate(tcid, choice))
       case Ast.UpdateExerciseInterface(tcid, choice, _, _, _) => Some(lookupInterface(tcid, choice))
@@ -181,23 +208,22 @@ object CrossPackageAnalyzer {
       endColumn   = Some(loc.end._2 + 1)
     )
 
-
   private def fileOnlyLocation(modName: String): SourceLocation =
     SourceLocation(file = modName + ".daml")
 
   // some other helpers
   private def isStdlib(name: String): Boolean =
-    name.startsWith("daml-prim") ||
-      name.startsWith("daml-stdlib") ||
-      name.startsWith("ghc-stdlib")
+    name.startsWith("daml-prim") || name.startsWith("daml-stdlib") || name.startsWith("ghc-stdlib")
 
   private def summaryOf(interactions: List[CrossPackageInteraction]): Summary = {
     val byType = interactions
       .groupBy(_.interactionType.toString)
       .view.mapValues(_.size).toMap
+
     val byTarget = interactions
       .groupBy(_.target.pkg)
       .view.mapValues(_.size).toMap
+
     Summary(interactions.size, byType, byTarget)
   }
 }
