@@ -247,6 +247,28 @@
       font-weight: 600; border-top: 2px solid #888; background: #fafafa;
     }
     .tableEmpty { color: #888; padding: 40px; text-align: center; font-size: 14px; }
+
+    /* Collapsed bucket at the bottom of the summary for DARs with zero cross-package findings. */
+    details.zero-findings-group {
+      margin-top: 28px; padding: 10px 14px;
+      background: #fafbfc; border: 1px solid #e0e0e0; border-radius: 6px;
+      font-size: 13px; color: #555;
+    }
+    details.zero-findings-group summary {
+      cursor: pointer; font-size: 13px; color: #444;
+      list-style-position: outside;
+    }
+    details.zero-findings-group summary strong { color: #1976d2; }
+    details.zero-findings-group .zero-list {
+      list-style: none; margin: 10px 0 0; padding: 0;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px;
+    }
+    details.zero-findings-group .zero-list li {
+      padding: 3px 0; border-top: 1px solid #eee;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    details.zero-findings-group .zero-list .pkg-cell { font-family: ui-monospace, monospace; font-size: 12px; color: #333; }
+    details.zero-findings-group .zero-list .meta { color: #888; font-size: 11px; }
   </style>
 </head>
 <body>
@@ -255,6 +277,7 @@
       <h1>daml-analyzer viewer</h1>
       <input type="file" id="file" accept=".json" multiple>
       <input type="text" id="search" placeholder="filter rows by package name…">
+      <button id="exportBtn" title="Download a standalone HTML file with the loaded data embedded, ready to share">Export HTML</button>
       <span id="status">No file loaded</span>
     </div>
 
@@ -287,7 +310,8 @@
 
   <script>
     // ============================== state ==============================
-    let loadedResults = [];          // analyzed JSONs
+    // When this page was produced by the "Export HTML" button, the data is embedded — use it.
+    let loadedResults = Array.isArray(window.EMBEDDED_RESULTS) ? window.EMBEDDED_RESULTS : [];
     let searchQuery = '';
     let pkgPrefixCount = 0;          // leading "-"-segments common to all loaded package names, stripped from display
     let cy = null;                   // cytoscape instance (graph tab), built lazily
@@ -337,6 +361,37 @@
         `${loadedResults.length} DAR(s) · ${total} findings`;
     });
 
+    // ============================== export standalone HTML ==============================
+    // Produce a self-contained copy of this page with the loaded data embedded, so it can be
+    // shared and opened directly (no "load these JSONs" step). The embedded copy reuses this
+    // exact viewer code; on open it sees window.EMBEDDED_RESULTS and renders immediately.
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      if (!loadedResults.length) { alert('Load one or more analyzer JSONs first, then export.'); return; }
+
+      const clone = document.documentElement.cloneNode(true);
+      // Drop lazily-injected CDN <script src> tags and any rendered view DOM — the embedded
+      // copy re-renders from the data on open, and re-lazy-loads cytoscape only if needed.
+      clone.querySelectorAll('script[src]').forEach(s => s.remove());
+      clone.querySelectorAll('#highlightsView, #tableView, #graphView, #diffView').forEach(el => { el.innerHTML = ''; });
+
+      // Escape "<" so the JSON can't break out of the <script> it's embedded in.
+      const dataJson = JSON.stringify(loadedResults).replace(/</g, '\\u003c');
+      const dataScript = `<script>window.EMBEDDED_RESULTS=${dataJson};</` + `script>\n<script>`;
+      let out = '<!DOCTYPE html>\n' + clone.outerHTML;
+      // Inject the data global immediately before our (now sole) inline script. Use a replacer
+      // FUNCTION so "$" sequences in the data (e.g. Daml's $sc_ helpers) aren't treated as
+      // special replacement patterns.
+      out = out.replace('<script>', () => dataScript);
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([out], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `daml-analyzer-report-${stamp}.html`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
     // ============================== search ==============================
     document.getElementById('search').addEventListener('input', (e) => {
       searchQuery = e.target.value.trim().toLowerCase();
@@ -350,6 +405,17 @@
         const pkg = (tr.dataset.target || '').toLowerCase();
         tr.style.display = pkg.includes(searchQuery) ? '' : 'none';
       });
+      // Summary tab: also filter the collapsed zero-findings list; auto-expand when matches hit.
+      const zeroGroup = document.querySelector('#tableView .zero-findings-group');
+      if (zeroGroup) {
+        let anyVisible = false;
+        zeroGroup.querySelectorAll('li[data-pkg]').forEach(li => {
+          const hit = !searchQuery || (li.dataset.pkg || '').toLowerCase().includes(searchQuery);
+          li.style.display = hit ? '' : 'none';
+          if (hit && searchQuery) anyVisible = true;
+        });
+        if (searchQuery && anyVisible) zeroGroup.open = true;
+      }
       // Highlights tab: filter non-consuming groups and dependency-table rows by package name.
       document.querySelectorAll('#highlightsView [data-pkg]').forEach(el => {
         if (!searchQuery) { el.style.display = ''; return; }
@@ -382,6 +448,11 @@
         loadedResults.flatMap(r => r.interactions.map(i => i.type))
       )).sort();
 
+      // DARs with no cross-package interactions are deferred into a single collapsed group at
+      // the bottom — otherwise they'd add a wall of empty sections (especially on the full
+      // Splice corpus, where ~35 packages are pure interface/leaf libs with zero findings).
+      const zeros = [];
+
       const sections = loadedResults.map((r, ri) => {
         // Group findings by target package within this JSON.
         const byPkg = new Map();
@@ -399,11 +470,8 @@
         const grandTotal = colTotals.reduce((s, x) => s + x, 0);
 
         if (rows.length === 0) {
-          return `
-            <div class="jsonSection">
-              <h3 title="${escapeHtml(r.analyzedPackage.name)}">${escapeHtml(shortPkg(r.analyzedPackage.name))} <span class="meta">${escapeHtml(r.analyzedPackage.version)} · no cross-package interactions</span></h3>
-            </div>
-          `;
+          zeros.push(r);
+          return '';
         }
 
         return `
@@ -448,7 +516,22 @@
         `;
       }).join('');
 
-      container.innerHTML = sections;
+      let zerosBlock = '';
+      if (zeros.length) {
+        const items = zeros
+          .slice()
+          .sort((a, b) => a.analyzedPackage.name.localeCompare(b.analyzedPackage.name))
+          .map(r => `<li data-pkg="${escapeHtml(r.analyzedPackage.name)}">
+            <span class="pkg-cell" title="${escapeHtml(r.analyzedPackage.name)}">${escapeHtml(shortPkg(r.analyzedPackage.name))}</span>
+            <span class="meta">${escapeHtml(r.analyzedPackage.version)}</span>
+          </li>`).join('');
+        zerosBlock = `
+          <details class="zero-findings-group">
+            <summary><strong>${zeros.length}</strong> DAR${zeros.length === 1 ? '' : 's'} with no cross-package interactions</summary>
+            <ul class="zero-list">${items}</ul>
+          </details>`;
+      }
+      container.innerHTML = sections + zerosBlock;
 
       container.querySelectorAll('tbody tr').forEach(tr => {
         tr.addEventListener('click', (e) => {
@@ -594,7 +677,7 @@
 
       const byCaller = new Map();   // callerLabel -> Map<type, Set<targetLabel>>
       subset.forEach(i => {
-        const caller = `${i.caller.module}.${i.caller.template || '?'}.${i.caller.choice || '?'}`;
+        const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}${i.caller.choice ? '.' + i.caller.choice : ''}`;
         if (!byCaller.has(caller)) byCaller.set(caller, new Map());
         const row = byCaller.get(caller);
         if (!row.has(i.type)) row.set(i.type, new Set());
@@ -745,7 +828,7 @@
         .map(([t, n]) => `<span class="pill">${escapeHtml(t)} ${n}</span>`).join(' ');
     }
     function fmtInteraction(i) {
-      const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}.${i.caller.choice || '?'}`;
+      const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}${i.caller.choice ? '.' + i.caller.choice : ''}`;
       const tgt = `${shortPkg(i.target.package)}:${i.target.module}.${i.target.template || i.target.interface || '?'}${i.target.choice ? '.' + i.target.choice : ''}`;
       const nc = i.target.consuming === false ? ' <span class="pill nonconsuming" style="font-size:10px;">non-consuming</span>' : '';
       return `<span class="pill">${escapeHtml(i.type)}</span> ${escapeHtml(caller)} <span class="arrow">→</span> ${escapeHtml(tgt)}${nc}`;
@@ -803,7 +886,7 @@
     // Identity of an interaction for diffing — deliberately excludes source line numbers
     // (they shift between versions) and the target's version (a dep bump is not a behavior change).
     function diffKey(i) {
-      const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}.${i.caller.choice || '?'}`;
+      const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}${i.caller.choice ? '.' + i.caller.choice : ''}`;
       const tgt    = `${i.target.package}.${i.target.module}.${i.target.template || i.target.interface || '?'}${i.target.choice ? '.' + i.target.choice : ''}`;
       return `${i.type}|${caller}|${tgt}|${i.target.consuming}`;
     }
@@ -882,7 +965,7 @@
       const unchanged = Array.from(toMap.keys()).filter(k => fromMap.has(k)).length;
 
       const fmt = (i) => {
-        const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}.${i.caller.choice || '?'}`;
+        const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}${i.caller.choice ? '.' + i.caller.choice : ''}`;
         const tgt = `${shortPkg(i.target.package)}:${i.target.module}.${i.target.template || i.target.interface || '?'}${i.target.choice ? '.' + i.target.choice : ''}`;
         const nc = i.target.consuming === false ? ' <span class="pill nonconsuming" style="font-size:10px;">non-consuming</span>' : '';
         return `<span class="pill">${escapeHtml(i.type)}</span> ${escapeHtml(caller)} <span class="arrow">→</span> ${escapeHtml(tgt)}${nc}`;
@@ -1032,7 +1115,7 @@
         ${findings.map(f => `
           <div class="finding">
             <div>
-              <span class="caller">${escapeHtml(f.caller.module)}.${escapeHtml(f.caller.template || f.caller.interface || '?')}.${escapeHtml(f.caller.choice || '?')}</span>
+              <span class="caller">${escapeHtml(f.caller.module)}.${escapeHtml(f.caller.template || f.caller.interface || '?')}${f.caller.choice ? '.' + escapeHtml(f.caller.choice) : ''}</span>
               <span class="arrow">→</span>
               <span class="target">${escapeHtml(f.target.module)}.${escapeHtml(f.target.template || f.target.interface || '?')}${f.target.choice ? '.' + escapeHtml(f.target.choice) : ''}</span>
             </div>
@@ -1093,6 +1176,11 @@
     renderTable();
     renderHighlights();
     renderDiff();
+    if (loadedResults.length) {
+      const total = loadedResults.reduce((s, r) => s + r.summary.totalInteractions, 0);
+      document.getElementById('status').textContent = `${loadedResults.length} DAR(s) · ${total} findings`;
+      if (document.getElementById('app').dataset.tab === 'graph') { renderGraph(); graphDirty = false; }
+    }
   </script>
 </body>
 </html>
