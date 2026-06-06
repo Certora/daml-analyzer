@@ -2,6 +2,25 @@
 
 A Static analysis tool for inspecting cross-package interactions in compiled Daml packages (`.dar` files).
 
+## What it does
+
+Given a compiled Daml package, daml-analyzer reports all **cross-package interaction** the code performs against contracts or interfaces defined in other packages — `Create`, `Exercise`, `Fetch`, `ExerciseInterface`, `ImplementsInterface`, and so on.
+The tool tracks the caller choice that triggered it, the target package, module, template/interface and choice it reaches, whether the choice is consuming, and the source `file:line:col` (when available). The output is a JSON and a Graphviz DOT.
+
+There is a browser-based [**viewer**](viewer/) that renders the JSON as Highlights, a Summary table, a Graph, and a Diff view that compares two versions of the same package. See [viewer/README.md](viewer/README.md) for details.
+
+## Who this is for
+
+Developers building protocols for Canton and auditors reviewing Canton deployments.
+
+## Status
+
+This project is under active development.
+
+We have successfully run daml-analyzer on the [full Splice corpus](https://github.com/canton-network/splice/tree/main/daml/dars) (165 DARs) and all the files in the [utilities](https://docs.digitalasset.com/utilities/mainnet/reference/dar-versions/dar-versions.html) (53 DARs).
+
+We would love to hear from users and get feedback from the community.
+
 ## Build
 
 ```bash
