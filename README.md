@@ -1,5 +1,7 @@
 # daml-analyzer
 
+[![CI](https://github.com/Certora/daml-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/Certora/daml-analyzer/actions/workflows/ci.yml)
+
 A Static analysis tool for inspecting cross-package interactions in compiled Daml packages (`.dar` files).
 
 ## What it does
