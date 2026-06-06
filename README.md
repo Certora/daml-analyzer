@@ -1,6 +1,6 @@
 # daml-analyzer
 
-Static analysis tool for inspecting cross-package interactions in compiled Daml packages (`.dar` files).
+A Static analysis tool for inspecting cross-package interactions in compiled Daml packages (`.dar` files).
 
 ## Build
 
@@ -9,15 +9,9 @@ sbt compile
 sbt assembly # makes jar
 ```
 
-If you make the JAR file, run like so:
-
-```bash
-java -jar target/scala-2.13/daml-analyzer-0.1.0-SNAPSHOT.jar foo.dar -o out/
-```
+## Run
 
 See the various ways to run below. You can either run `sbt "run ..."` or `java -jar ...`.
-
-## Run
 
 | Command | Output |
 |---|---|
@@ -30,11 +24,18 @@ See the various ways to run below. You can either run `sbt "run ..."` or `java -
 | `sbt "run dars-dir/"` | Error because batch mode requires `-o` |
 | `sbt "run --help"` | Print usage |
 
+If you make the JAR file, run like so:
+
+```bash
+java -jar target/scala-2.13/daml-analyzer-0.1.0-SNAPSHOT.jar foo.dar -o out/
+```
+
+
 ## Visualize the results
 
 Two options depending on the output format you produced.
 
-**JSON → browser-based summary table** 
+**JSON → browser-based (recommended)** 
 
 Open `viewer/index.html` in any browser, click the file input, and pick one or more `.json` files from your output directory. See [viewer/README.md](viewer/README.md) for details.
 
@@ -42,6 +43,13 @@ Open `viewer/index.html` in any browser, click the file input, and pick one or m
 sbt "run foo.dar -o out/"
 open viewer/index.html  # load out/foo.json using file picker
 ```
+
+As a concrete example, run daml-analyzer on the Splice dar files [here](https://github.com/canton-network/splice/tree/main/daml/dars) (you can clone the repo) and upload all the resulting json files to the viewer. Here are the step by step instructions:
+
+1. clone the splice repo
+2. run `sbt assembly`
+3. run `sbt "run path/to/splice/dars -o path/to/out/dir"`
+4. open the `index.html` and upload the jsons from `path/to/out/dir`
 
 **DOT → PNG with Graphviz**
 

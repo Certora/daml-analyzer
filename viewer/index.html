@@ -4,277 +4,471 @@
   <meta charset="utf-8">
   <title>daml-analyzer viewer</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #222; }
-    #app { display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: 1fr 380px; height: 100vh; }
+    /* === Tokens ============================================================
+       Single source of truth for colors, radii, shadows. The accent (Certora
+       red) is reserved for active state (tab underline, selection) and the
+       primary action. */
+    :root {
+      --bg:           #fafaf7;
+      --surface:      #ffffff;
+      --surface-2:    #f4f4f0;
+      --ink:          #1a1a1a;
+      --ink-2:        #444444;
+      --muted:        #6b6b6b;
+      --line:         #e5e5e0;
+      --line-strong:  #c8c8c5;
 
-    #toolbar {
-      grid-column: 1 / span 2;
-      padding: 10px 16px;
-      background: #fff;
-      border-bottom: 1px solid #ddd;
-      display: flex; align-items: center; gap: 12px;
-      flex-wrap: wrap;
+      --accent:       #b3331c;
+      --accent-ink:   #ffffff;
+      --accent-tint:  rgba(179, 51, 28, 0.10);
+      --accent-tint-strong: rgba(179, 51, 28, 0.20);
+
+      --success:      #2f7a3a;
+      --success-tint: rgba(47, 122, 58, 0.12);
+      --warn:         #a07000;
+      --warn-tint:    rgba(160, 112, 0, 0.10);
+
+      --radius:       8px;
+      --radius-sm:    4px;
+      --shadow:       0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.04);
+      --shadow-pop:   0 2px 12px rgba(0, 0, 0, 0.14);
     }
 
-    /* Tab bar — its own row spanning both columns, below the toolbar. */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    #app {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      grid-template-columns: 1fr 380px;
+      height: 100vh;
+      background: var(--bg);
+    }
+
+    /* === Toolbar / wordmark ============================================ */
+    #toolbar {
+      grid-column: 1 / span 2;
+      padding: 14px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 14px;
+      flex-wrap: wrap;
+    }
+    .wordmark { display: flex; align-items: baseline; gap: 10px; }
+    .brand    { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
+    .tag {
+      font-size: 10px; padding: 2px 8px; border-radius: 999px;
+      background: var(--surface-2); color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+    }
+
+    #toolbar input[type=file] { font-size: 12px; color: var(--muted); }
+    #toolbar input[type=text],
+    #toolbar button {
+      font: inherit; font-size: 13px;
+      padding: 6px 10px;
+      background: var(--surface); color: var(--ink);
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+    }
+    #toolbar input[type=text] { width: 240px; }
+    #toolbar input[type=text]:focus {
+      outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent;
+    }
+    #toolbar button { cursor: pointer; transition: background 0.1s ease, filter 0.1s ease; }
+    #toolbar button:hover { background: var(--surface-2); }
+    #exportBtn {
+      background: var(--accent); color: var(--accent-ink);
+      border-color: var(--accent); font-weight: 600;
+    }
+    #exportBtn:hover { background: var(--accent); filter: brightness(1.08); }
+    #exportBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    #status { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+    /* === Tab bar ======================================================= */
     #tabbar {
       grid-column: 1 / span 2;
-      background: #fff; border-bottom: 1px solid #ddd;
-      padding: 0 12px; display: flex; gap: 4px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: 0 16px;
+      display: flex; gap: 4px;
     }
     .tab {
       border: none; background: none; cursor: pointer;
-      padding: 8px 14px; font-size: 13px; color: #666;
+      padding: 10px 14px; font: inherit; font-size: 13px;
+      color: var(--muted);
       border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color 0.1s ease;
     }
-    .tab:hover { color: #222; }
-    .tab.active { color: #1976d2; font-weight: 600; border-bottom-color: #1976d2; }
+    .tab:hover { color: var(--ink); }
+    .tab.active { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
 
-    /* All content views live in the third grid row; hidden by default, shown per active tab. */
+    /* === Views layout (row 3) ========================================== */
     #highlightsView, #tableView, #panel, #graphView, #diffView { grid-row: 3; display: none; }
-    #tableView { grid-column: 1; }
+    #tableView { grid-column: 1; background: var(--surface); overflow: auto; padding: 24px; }
     #panel     { grid-column: 2; }
-    #highlightsView, #graphView, #diffView { grid-column: 1 / span 2; background: #fff; overflow: auto; }
-    #highlightsView, #diffView { padding: 20px; }
-
-    /* Tab visibility, driven by the active tab on #app. */
+    #highlightsView, #graphView, #diffView { grid-column: 1 / span 2; background: var(--surface); overflow: auto; }
+    #highlightsView, #diffView { padding: 24px; }
     #app[data-tab="highlights"] #highlightsView { display: block; }
     #app[data-tab="summary"]    #tableView,
     #app[data-tab="summary"]    #panel          { display: block; }
     #app[data-tab="graph"]      #graphView      { display: block; }
     #app[data-tab="diff"]       #diffView       { display: block; }
+    /* Inline drill-down row: inserted into the dependency table right under the row
+       whose chip was clicked. Tinted so it visually belongs to its parent row. */
+    tr.drilldown-row > td {
+      background: var(--accent-tint); padding: 14px 18px 18px;
+      border-top: 1px solid var(--accent); border-bottom: 1px solid var(--line);
+    }
+    .drilldown-inner { padding-left: 14px; border-left: 2px solid var(--accent); }
+    .drilldown-heading {
+      font-size: 13px; margin: 0 0 8px; color: var(--ink);
+      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+    }
+    .drilldown-inner .findings-table { background: var(--surface); }
 
-    #drilldown { margin-top: 24px; }
-
-    /* ---- Highlights overview band ---- */
+    /* === Highlights overview ========================================== */
     .overview { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 28px; }
     .stat-card {
       flex: 1 1 140px; min-width: 140px;
-      border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px 14px; background: #fafbfc;
+      border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 14px 16px; background: var(--surface);
     }
-    .stat-card .num { font-size: 26px; font-weight: 700; color: #1976d2; line-height: 1.1; }
-    .stat-card.warn .num { color: #d32f2f; }
-    .stat-card .lbl { font-size: 12px; color: #666; margin-top: 4px; }
-    .type-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 28px; }
-    .type-bar .chip {
-      font-size: 12px; padding: 3px 9px; border-radius: 10px;
-      background: #eef; color: #335; font-family: ui-monospace, monospace;
+    .stat-card .num {
+      font-size: 28px; font-weight: 700; color: var(--ink);
+      line-height: 1.1; letter-spacing: -0.01em;
     }
-    .type-bar .chip b { font-family: -apple-system, sans-serif; }
-
-    /* ---- Graph tab ---- */
+    .stat-card.warn .num { color: var(--accent); }
+    .stat-card .lbl {
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    /* === Graph tab ===================================================== */
     #cy { position: absolute; inset: 0; }
-    #graphView { padding: 0; position: relative; overflow: hidden; }
-    #graphEmpty { padding: 40px; text-align: center; color: #888; }
-    #graphLegend {
-      position: absolute; top: 10px; right: 14px; z-index: 5;
-      background: rgba(255,255,255,0.92); border: 1px solid #ddd; border-radius: 6px;
-      padding: 8px 12px; font-size: 12px; color: #444; line-height: 1.7;
+    #graphView { padding: 0; position: relative; overflow: hidden; background: var(--bg); }
+    #graphEmpty { padding: 40px; text-align: center; color: var(--muted); }
+    #graphLegend, #diffGraphLegend {
+      position: absolute; top: 12px; right: 14px; z-index: 5;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 10px 14px; font-size: 12px; color: var(--ink-2); line-height: 1.7;
+      box-shadow: var(--shadow);
     }
-    #graphLegend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 6px; border: 1px solid #aaa; }
-    #graphLegend .sw.analyzed { background: #e3f2fd; border-color: #1976d2; }
-    #graphLegend .sw.dep { background: #fff; border-color: #ccc; }
-    #graphLegend .sw.line { width: 16px; height: 0; border: none; border-top: 3px solid #888; border-radius: 0; }
-    #graphLegend .sw.line.nc { border-top-color: #d32f2f; }
+    #graphLegend .sw {
+      display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+      vertical-align: middle; margin-right: 6px; border: 1px solid var(--line-strong);
+    }
+    #graphLegend .sw.analyzed { background: var(--accent-tint); border-color: var(--accent); }
+    #graphLegend .sw.dep      { background: var(--surface); border-color: var(--line-strong); }
+    #graphLegend .sw.line {
+      width: 18px; height: 0; border: none; border-top: 3px solid var(--muted); border-radius: 0;
+    }
+    #graphLegend .sw.line.nc { border-top-color: var(--accent); }
 
-    /* ---- Diff tab ---- */
-    .diff-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; }
-    .diff-controls select { font-size: 13px; padding: 3px 6px; }
-    .diff-controls .arrow { color: #999; }
+    /* === Diff tab ====================================================== */
+    .diff-controls {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px;
+      color: var(--muted); font-size: 13px;
+    }
+    .diff-controls select {
+      font: inherit; font-size: 13px; padding: 5px 8px;
+      background: var(--surface); color: var(--ink);
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+    }
+    .diff-controls select:focus {
+      outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent;
+    }
+    .diff-controls .arrow { color: var(--muted); }
+    .diff-controls strong { color: var(--ink); }
     .diff-section { margin-bottom: 24px; }
-    .diff-section h3 { font-size: 14px; margin: 0 0 8px; }
-    .diff-row {
-      padding: 6px 10px; font-size: 13px; font-family: ui-monospace, monospace;
-      border-left: 3px solid transparent; margin: 2px 0; border-radius: 0 3px 3px 0;
+    .diff-section h3 {
+      font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--ink);
+      text-transform: uppercase; letter-spacing: 0.04em;
     }
-    .diff-row.added   { background: #e9f7ec; border-left-color: #2e9e4f; }
-    .diff-row.removed { background: #fdecea; border-left-color: #d32f2f; }
+    .diff-row {
+      padding: 6px 10px; font-size: 13px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      border-left: 3px solid transparent; margin: 2px 0; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      color: var(--ink);
+    }
+    .diff-row.added   { background: var(--success-tint); border-left-color: var(--success); }
+    .diff-row.removed { background: var(--accent-tint);  border-left-color: var(--accent); }
     .diff-row .sign { font-weight: 700; margin-right: 8px; }
-    .diff-row.added   .sign { color: #2e9e4f; }
-    .diff-row.removed .sign { color: #d32f2f; }
-    .diff-row .arrow { color: #999; margin: 0 4px; }
-    .diff-count { color: #666; font-size: 12px; font-weight: 400; margin-left: 6px; }
-    .diff-unchanged { color: #888; font-size: 13px; }
+    .diff-row.added   .sign { color: var(--success); }
+    .diff-row.removed .sign { color: var(--accent); }
+    .diff-row .arrow { color: var(--muted); margin: 0 4px; }
+    .diff-count { color: var(--muted); font-size: 11px; font-weight: 600; margin-left: 8px; letter-spacing: 0; text-transform: none; }
+    .diff-unchanged { color: var(--muted); font-size: 13px; }
 
-    /* Diff graph: package star, edges colored by change. */
     #diffGraphWrap {
-      position: relative; height: 440px; margin-bottom: 22px;
-      border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; background: #fafafa;
+      position: relative; height: 460px; margin-bottom: 24px;
+      border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+      background: var(--bg);
     }
     #diffCy { position: absolute; inset: 0; }
-    #diffGraphLoading { padding: 40px; text-align: center; color: #888; }
-    #diffGraphLegend {
-      position: absolute; top: 10px; right: 12px; z-index: 5;
-      background: rgba(255,255,255,0.92); border: 1px solid #ddd; border-radius: 6px;
-      padding: 8px 12px; font-size: 12px; color: #444; line-height: 1.7;
+    #diffGraphLoading { padding: 40px; text-align: center; color: var(--muted); }
+    #diffGraphLegend .sw {
+      display: inline-block; width: 18px; height: 0; vertical-align: middle;
+      margin-right: 6px; border-top: 3px solid var(--muted);
     }
-    #diffGraphLegend .sw { display: inline-block; width: 16px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 3px solid #888; }
-    #diffGraphLegend .sw.added   { border-top-color: #2e9e4f; }
-    #diffGraphLegend .sw.removed { border-top: 3px dashed #d32f2f; }
-    #diffGraphLegend .sw.changed { border-top-color: #f9a825; }
+    #diffGraphLegend .sw.added   { border-top-color: var(--success); }
+    #diffGraphLegend .sw.removed { border-top: 3px dashed var(--accent); }
+    #diffGraphLegend .sw.changed { border-top-color: var(--warn); }
 
-    /* Click-to-inspect overlay, shared by both graphs. */
+    /* === Click-to-inspect overlay (both graphs) ======================== */
     .graph-details {
-      position: absolute; left: 12px; bottom: 12px; z-index: 6;
-      width: 360px; max-width: calc(100% - 24px); max-height: 62%; overflow: auto;
-      background: #fff; border: 1px solid #ccc; border-radius: 6px;
-      padding: 12px 14px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.14);
-      display: none;
+      position: absolute; left: 14px; bottom: 14px; z-index: 6;
+      width: 380px; max-width: calc(100% - 28px); max-height: 62%; overflow: auto;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 14px 16px; font-size: 12px; box-shadow: var(--shadow-pop);
+      display: none; color: var(--ink);
     }
     .graph-details.show { display: block; }
-    .graph-details h4 { margin: 0 6px 8px 0; font-size: 13px; font-family: ui-monospace, monospace; word-break: break-all; }
-    .graph-details .close { position: absolute; top: 8px; right: 10px; cursor: pointer; color: #999; font-size: 16px; line-height: 1; }
-    .graph-details .gd-sec { margin: 8px 0 4px; color: #555; font-weight: 600; }
-    .graph-details .gd-sec.added   { color: #2e9e4f; }
-    .graph-details .gd-sec.removed { color: #d32f2f; }
-    .graph-details .gd-row { padding: 3px 0; font-family: ui-monospace, monospace; border-top: 1px solid #f0f0f0; }
-    .graph-details .gd-row:first-of-type { border-top: none; }
-    .graph-details .arrow { color: #999; margin: 0 3px; }
-    .graph-details .muted { color: #888; }
-
-    /* Clickable dependency chip in the dependency table. */
-    .dep-chip {
-      display: inline-block; padding: 2px 9px; margin: 2px 4px 2px 0;
-      background: #eef; color: #335; border-radius: 10px; font-size: 12px;
-      cursor: pointer; font-family: ui-monospace, monospace;
+    .graph-details h4 {
+      margin: 0 28px 8px 0; font-size: 13px; font-family: ui-monospace, monospace;
+      word-break: break-all; color: var(--ink);
     }
-    .dep-chip:hover { background: #d0e4ff; }
-    .dep-chip.selected { background: #1976d2; color: #fff; }
-    .dep-none { color: #ccc; }
-    /* Non-consuming function list, one line per choice. */
-    .nc-func { padding: 4px 0; font-size: 13px; font-family: ui-monospace, monospace; }
-    .nc-func .count { color: #888; font-family: -apple-system, sans-serif; font-size: 12px; margin-left: 6px; }
-    /* Drill-down cells list one or more target callees; let them wrap and left-align. */
+    .graph-details .close {
+      position: absolute; top: 10px; right: 12px; cursor: pointer; color: var(--muted);
+      font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: var(--radius-sm);
+    }
+    .graph-details .close:hover { color: var(--ink); background: var(--surface-2); }
+    .graph-details .gd-sec {
+      margin: 10px 0 4px; color: var(--muted); font-weight: 600;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .graph-details .gd-sec.added   { color: var(--success); }
+    .graph-details .gd-sec.removed { color: var(--accent); }
+    .graph-details .gd-row {
+      padding: 4px 0; font-family: ui-monospace, monospace; color: var(--ink);
+      border-top: 1px solid var(--line);
+    }
+    .graph-details .gd-row:first-of-type { border-top: none; }
+    .graph-details .arrow { color: var(--muted); margin: 0 3px; }
+    .graph-details .muted { color: var(--muted); }
+
+    /* === Highlights chips & lists ====================================== */
+    .dep-chip {
+      display: inline-block; padding: 3px 10px; margin: 2px 4px 2px 0;
+      background: var(--surface-2); color: var(--ink-2); border-radius: 999px;
+      font-size: 12px; cursor: pointer; font-family: ui-monospace, monospace;
+      border: 1px solid transparent; transition: background 0.1s ease, color 0.1s ease;
+    }
+    .dep-chip:hover { background: var(--accent-tint); color: var(--accent); }
+    .dep-chip.selected { background: var(--accent); color: var(--accent-ink); }
+    .dep-none { color: var(--muted); }
+    .nc-func { padding: 4px 0; font-size: 13px; font-family: ui-monospace, monospace; color: var(--ink); }
+    .nc-func .count { color: var(--muted); font-family: system-ui, sans-serif; font-size: 12px; margin-left: 6px; }
     .findings-table td.targets {
       text-align: left; white-space: normal;
       font-family: ui-monospace, monospace; font-size: 12px;
     }
-    .findings-table td.targets.empty { color: #ccc; }
-    #toolbar h1 { font-size: 14px; margin: 0; font-weight: 600; }
-    #toolbar input[type=file] { font-size: 13px; }
-    #toolbar input[type=text] {
-      padding: 4px 8px; font-size: 13px; width: 240px;
-      border: 1px solid #ccc; border-radius: 4px;
+    .findings-table td.targets.empty { color: var(--muted); }
+
+    /* === Right panel =================================================== */
+    #panel {
+      padding: 18px;
+      overflow-y: auto;
+      background: var(--surface);
+      position: relative;
+      /* No border-left here — the #panelResize splitter line provides the boundary. */
     }
-    #status { margin-left: auto; color: #666; font-size: 12px; }
-
-    #tableView { background: #fff; overflow: auto; padding: 20px; }
-
-    #panel { border-left: 1px solid #ddd; padding: 16px; overflow-y: auto; background: white; position: relative; }
-    /* Drag handle on the panel's left edge — invisible until hover. */
+    /* Resizable left edge of the right panel. Always-visible splitter line so the affordance
+       is discoverable; widens the grab zone (8px) without changing the visible width (2px). */
     #panelResize {
-      position: absolute; top: 0; left: -3px;
-      width: 6px; height: 100%;
+      position: absolute; top: 0; left: -4px;
+      width: 8px; height: 100%;
       cursor: ew-resize; z-index: 10;
       background: transparent;
-      transition: background 0.15s;
     }
-    #panelResize:hover, #panelResize.dragging { background: rgba(25, 118, 210, 0.35); }
-    #panel h2 { font-size: 13px; margin: 0 0 8px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
-    #panel h3 { font-size: 14px; margin: 16px 0 6px; }
+    #panelResize::before {
+      content: ''; position: absolute; top: 0; left: 3px;
+      width: 2px; height: 100%;
+      background: var(--line-strong);
+      transition: background 0.12s ease;
+    }
+    #panelResize:hover::before, #panelResize.dragging::before { background: var(--accent); }
+    #panelResize:hover, #panelResize.dragging { background: var(--accent-tint); }
+    #panel h2 {
+      font-size: 11px; margin: 0 0 10px;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+    #panel h3 { font-size: 14px; margin: 16px 0 6px; color: var(--ink); }
 
-    .finding { border-top: 1px solid #eee; padding: 10px 0; font-size: 13px; }
+    .finding {
+      border-top: 1px solid var(--line);
+      padding: 10px 0; font-size: 13px;
+    }
     .finding:first-of-type { border-top: none; }
-    .finding .caller { font-weight: 600; }
-    .finding .arrow { color: #999; margin: 0 4px; }
-    .finding .target { color: #333; }
-    .finding .src { color: #888; font-size: 12px; margin-top: 4px; font-family: ui-monospace, monospace; }
-    .pill { display: inline-block; padding: 1px 7px; background: #eef; border-radius: 10px; font-size: 11px; margin-right: 4px; color: #335; }
-    /* Only non-consuming gets a pill (consuming is the default for exercises).
-       Red-tinted because non-consuming exercises are the auditor-interesting case —
-       they can be re-run on the same contract repeatedly. */
-    .pill.nonconsuming { background: #fee; color: #a33; font-weight: 600; }
-    .hint { color: #888; font-size: 13px; line-height: 1.5; }
+    .finding .caller { font-weight: 600; color: var(--ink); }
+    .finding .arrow  { color: var(--muted); margin: 0 4px; }
+    .finding .target { color: var(--ink-2); }
+    .finding .src    { color: var(--muted); font-size: 12px; margin-top: 4px; font-family: ui-monospace, monospace; }
 
-    /* Key shown at the top of the findings list — explains how to read each row. */
+    .pill {
+      display: inline-block; padding: 2px 8px;
+      background: var(--surface-2); color: var(--ink-2);
+      border-radius: 999px; font-size: 11px; margin-right: 4px;
+      font-weight: 500;
+    }
+    .pill.nonconsuming { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+
     details.finding-key {
-      margin: 6px 0 14px; font-size: 12px; color: #555;
-      background: #fafafa; border: 1px solid #eee; border-radius: 4px;
+      margin: 6px 0 14px; font-size: 12px; color: var(--ink-2);
+      background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
       padding: 8px 12px;
     }
     details.finding-key summary {
-      cursor: pointer; font-weight: 600; color: #333; outline: none;
+      cursor: pointer; font-weight: 600; color: var(--ink); outline: none;
       list-style-position: outside;
     }
-    details.finding-key ul {
-      margin: 8px 0 0; padding-left: 18px; line-height: 1.6;
-    }
+    details.finding-key ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
     details.finding-key li { margin: 4px 0; }
     details.finding-key code {
-      background: #fff; border: 1px solid #e0e0e0; padding: 0 4px;
-      border-radius: 3px; font-size: 11px; color: #1976d2;
+      background: var(--surface); border: 1px solid var(--line);
+      padding: 0 4px; border-radius: 3px; font-size: 11px; color: var(--accent);
     }
     details.finding-key .label {
-      display: inline-block; min-width: 60px;
-      font-weight: 600; color: #1976d2;
+      display: inline-block; min-width: 60px; font-weight: 600; color: var(--accent);
     }
 
-    /* Findings table. */
-    .jsonSection { margin-bottom: 32px; }
-    .jsonSection > h3 {
-      font-size: 16px; margin: 0 0 4px; color: #1976d2;
+    /* === Caller groups in the findings list (right panel) =============== */
+    details.caller-group {
+      margin: 10px 0 0; padding: 0;
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--surface);
+    }
+    details.caller-group + details.caller-group { margin-top: 8px; }
+    details.caller-group summary {
+      cursor: pointer; list-style-position: outside;
+      padding: 8px 10px; font-size: 12px;
+      display: flex; align-items: baseline; gap: 8px;
+      background: var(--surface-2); border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      border-bottom: 1px solid transparent;
+    }
+    details.caller-group[open] > summary {
+      border-bottom-color: var(--line);
+    }
+    details.caller-group summary .caller-name {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-weight: 600; color: var(--ink); word-break: break-all; flex: 1; min-width: 0;
+    }
+    details.caller-group summary .caller-count {
+      font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+      background: var(--accent-tint); color: var(--accent); flex: 0 0 auto;
+    }
+    details.caller-group .caller-body { padding: 4px 12px; }
+    /* Findings inside a group: tighter top border so the rows belong to the group visually. */
+    details.caller-group .caller-body .finding { border-top-color: var(--line); }
+    details.caller-group .caller-body .finding:first-child { border-top: none; }
+
+    /* === Shared section heading used across the highlights tab ========== */
+    .section-heading {
+      font-size: 13px; margin: 0 0 12px;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
       font-weight: 600;
     }
-    .jsonSection .meta { color: #888; font-weight: 400; font-size: 12px; margin-left: 8px; }
+
+    /* === Collapsible non-consuming groups (one per target package) ===== */
+    details.nc-pkg {
+      margin: 0 0 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--surface);
+    }
+    details.nc-pkg summary {
+      cursor: pointer; list-style-position: outside;
+      padding: 10px 14px;
+      display: flex; align-items: baseline; gap: 10px;
+      background: var(--surface-2);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      border-bottom: 1px solid transparent;
+    }
+    details.nc-pkg[open] > summary { border-bottom-color: var(--line); }
+    details.nc-pkg summary .pkg-name {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-weight: 600; color: var(--ink); flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    details.nc-pkg summary .meta { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+    details.nc-pkg summary .nc-count {
+      font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+      background: var(--accent-tint); color: var(--accent); flex: 0 0 auto;
+    }
+    details.nc-pkg .nc-body { padding: 6px 14px 10px; }
+
+    /* === Findings tables (lighter: row-divider only, no per-cell boxes) */
+    .jsonSection { margin-bottom: 32px; }
+    .jsonSection > h3 {
+      font-size: 16px; margin: 0 0 4px; color: var(--ink);
+      font-weight: 600; letter-spacing: -0.005em;
+    }
+    .jsonSection .meta { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
     .findings-table {
       border-collapse: collapse; font-size: 13px;
-      margin-top: 8px; width: 100%;
-      border: 1px solid #c8c8c8;        /* outer frame */
+      margin-top: 10px; width: 100%;
     }
     .findings-table th, .findings-table td {
-      padding: 6px 10px; text-align: right;
-      border: 1px solid #d8d8d8;        /* every cell gets its own box */
+      padding: 8px 12px; text-align: right;
+      border-bottom: 1px solid var(--line);
       white-space: nowrap;
     }
     .findings-table th {
-      background: #ececec; font-weight: 600; font-size: 12px;
-      color: #444; position: sticky; top: 0; z-index: 1;
-      border-color: #b8b8b8;            /* slightly stronger separators in the header */
+      background: var(--surface-2);
+      font-weight: 600; font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      position: sticky; top: 0; z-index: 1;
+      border-bottom: 1px solid var(--line-strong);
     }
     .findings-table th:first-child, .findings-table td:first-child { text-align: left; }
     .findings-table th:nth-child(2), .findings-table td:nth-child(2) {
-      text-align: left; color: #888; font-size: 12px; font-family: ui-monospace, monospace;
+      text-align: left; color: var(--muted); font-size: 12px;
+      font-family: ui-monospace, monospace;
     }
-    .findings-table tbody td.pkg-cell { font-family: ui-monospace, monospace; font-size: 12px; }
-    .findings-table tbody tr { cursor: pointer; }
-    .findings-table tbody tr:hover { background: #f5faff; }
-    .findings-table tbody tr.selected { background: #e3f2fd; }
-    .findings-table td.zero { color: #ccc; }
-    .findings-table td.clickable:hover { background: #d0e4ff; }
-    .findings-table td.cell-selected { background: #1976d2; color: #fff; font-weight: 600; }
+    .findings-table tbody td.pkg-cell { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink); }
+    .findings-table tbody tr { cursor: pointer; transition: background 0.1s ease; }
+    .findings-table tbody tr:hover { background: var(--surface-2); }
+    .findings-table tbody tr.selected { background: var(--accent-tint); }
+    .findings-table td.zero { color: var(--muted); opacity: 0.5; }
+    .findings-table td.clickable:hover { background: var(--accent-tint-strong); }
+    .findings-table td.cell-selected { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
     .findings-table tfoot td {
-      font-weight: 600; border-top: 2px solid #888; background: #fafafa;
+      font-weight: 600; border-top: 2px solid var(--line-strong); background: var(--surface);
+      color: var(--ink);
     }
-    .tableEmpty { color: #888; padding: 40px; text-align: center; font-size: 14px; }
+    .tableEmpty { color: var(--muted); padding: 60px; text-align: center; font-size: 14px; }
 
-    /* Collapsed bucket at the bottom of the summary for DARs with zero cross-package findings. */
+    /* === Zero-findings collapsed bucket ================================ */
     details.zero-findings-group {
-      margin-top: 28px; padding: 10px 14px;
-      background: #fafbfc; border: 1px solid #e0e0e0; border-radius: 6px;
-      font-size: 13px; color: #555;
+      margin-top: 32px; padding: 12px 16px;
+      background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius);
+      font-size: 13px; color: var(--ink-2);
     }
     details.zero-findings-group summary {
-      cursor: pointer; font-size: 13px; color: #444;
+      cursor: pointer; font-size: 13px; color: var(--ink);
       list-style-position: outside;
     }
-    details.zero-findings-group summary strong { color: #1976d2; }
+    details.zero-findings-group summary strong { color: var(--accent); }
     details.zero-findings-group .zero-list {
-      list-style: none; margin: 10px 0 0; padding: 0;
+      list-style: none; margin: 12px 0 0; padding: 0;
       display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px;
     }
     details.zero-findings-group .zero-list li {
-      padding: 3px 0; border-top: 1px solid #eee;
+      padding: 4px 0; border-top: 1px solid var(--line);
       display: flex; gap: 10px; align-items: baseline;
     }
-    details.zero-findings-group .zero-list .pkg-cell { font-family: ui-monospace, monospace; font-size: 12px; color: #333; }
-    details.zero-findings-group .zero-list .meta { color: #888; font-size: 11px; }
+    details.zero-findings-group .zero-list .pkg-cell { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink); }
+    details.zero-findings-group .zero-list .meta { color: var(--muted); font-size: 11px; }
+
   </style>
 </head>
 <body>
   <div id="app" data-tab="highlights">
     <div id="toolbar">
-      <h1>daml-analyzer viewer</h1>
+      <div class="wordmark"><span class="brand">daml-analyzer</span><span class="tag">viewer</span></div>
       <input type="file" id="file" accept=".json" multiple>
       <input type="text" id="search" placeholder="filter rows by package name…">
       <button id="exportBtn" title="Download a standalone HTML file with the loaded data embedded, ready to share">Export HTML</button>
@@ -417,9 +611,12 @@
         if (searchQuery && anyVisible) zeroGroup.open = true;
       }
       // Highlights tab: filter non-consuming groups and dependency-table rows by package name.
+      // For matching <details> groups, auto-expand so the user sees the contents without an
+      // extra click (consistent with the zero-findings bucket on the summary tab).
       document.querySelectorAll('#highlightsView [data-pkg]').forEach(el => {
-        if (!searchQuery) { el.style.display = ''; return; }
-        el.style.display = (el.dataset.pkg || '').toLowerCase().includes(searchQuery) ? '' : 'none';
+        const hit = !searchQuery || (el.dataset.pkg || '').toLowerCase().includes(searchQuery);
+        el.style.display = hit ? '' : 'none';
+        if (hit && searchQuery && el.tagName === 'DETAILS') el.open = true;
       });
     }
 
@@ -566,19 +763,28 @@
         container.innerHTML = '<div class="tableEmpty">Load one or more analyzer JSONs to see the highlights.</div>';
         return;
       }
-      container.innerHTML = renderOverview() + renderNonConsuming() + renderDependencyTable() + '<div id="drilldown"></div>';
+      container.innerHTML = renderOverview() + renderDependencyTable() + renderNonConsuming();
 
-      // Clicking a dependency chip renders the specialized table below.
+      // Clicking a dependency chip inserts the per-(analyzed-pkg, dep) drill-down inline,
+      // as a new table row right under the row the chip is in — so the result appears
+      // exactly where the user clicked, not at the bottom of the page.
       container.querySelectorAll('.dep-chip').forEach(chip => {
         chip.addEventListener('click', () => {
+          const parentRow = chip.closest('tr');
+          if (!parentRow) return;
+          const table = parentRow.parentNode;
           const wasSelected = chip.classList.contains('selected');
+          // Always clear current selection and any inline drill-down row first.
           container.querySelectorAll('.dep-chip.selected').forEach(c => c.classList.remove('selected'));
-          if (wasSelected) {                       // click again to close
-            document.getElementById('drilldown').innerHTML = '';
-            return;
-          }
+          container.querySelectorAll('tr.drilldown-row').forEach(r => r.remove());
+          if (wasSelected) return;                                  // toggle off
           chip.classList.add('selected');
-          renderDrilldown(+chip.dataset.json, chip.dataset.dep);
+          const row = document.createElement('tr');
+          row.className = 'drilldown-row';
+          row.innerHTML = `<td colspan="2"><div class="drilldown-inner">${renderDrilldown(+chip.dataset.json, chip.dataset.dep)}</div></td>`;
+          parentRow.insertAdjacentElement('afterend', row);
+          // Scroll the new row into view if it landed off-screen below the click.
+          row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         });
       });
     }
@@ -590,22 +796,15 @@
       const nonConsuming = new Set(
         allFindings.filter(i => i.target.consuming === false).map(i => i.target.package + '|' + targetLabel(i.target))
       );
-      const byType = {};
-      allFindings.forEach(i => { byType[i.type] = (byType[i.type] || 0) + 1; });
-      const typeChips = Object.entries(byType).sort((a, b) => b[1] - a[1])
-        .map(([t, n]) => `<span class="chip">${escapeHtml(t)} <b>${n}</b></span>`).join('');
-
       const card = (num, lbl, warn) =>
         `<div class="stat-card${warn ? ' warn' : ''}"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
-
       return `
         <div class="overview">
           ${card(loadedResults.length, 'DAR' + (loadedResults.length === 1 ? '' : 's') + ' analyzed')}
           ${card(allFindings.length, 'cross-package interactions')}
           ${card(externalPkgs.size, 'external packages touched')}
           ${card(nonConsuming.size, 'non-consuming choices', nonConsuming.size > 0)}
-        </div>
-        ${typeChips ? `<div class="type-bar">${typeChips}</div>` : ''}`;
+        </div>`;
     }
 
     // Section A: non-consuming choices, grouped by the package that DEFINES them (target package).
@@ -625,24 +824,31 @@
       if (byPkg.size === 0) {
         body = '<p class="hint">No non-consuming choices found in the loaded findings.</p>';
       } else {
-        body = Array.from(byPkg.entries())
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .map(([pkg, g]) => {
-            const funcs = Array.from(g.funcs.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-            return `
-              <div class="jsonSection" data-pkg="${escapeHtml(pkg)}">
-                <h3 title="${escapeHtml(pkg)}">${escapeHtml(shortPkg(pkg))}
-                  <span class="meta">${escapeHtml(g.version || '')} · ${funcs.length} non-consuming choice${funcs.length === 1 ? '' : 's'}</span>
-                </h3>
+        // Sort packages by descending count — the auditor-interesting view surfaces the
+        // packages with the most flagged choices first. The biggest group opens by default
+        // (matches the caller-group pattern in the right panel); the rest are collapsed.
+        const sorted = Array.from(byPkg.entries())
+          .sort((a, b) => b[1].funcs.size - a[1].funcs.size || a[0].localeCompare(b[0]));
+        body = sorted.map(([pkg, g], i) => {
+          const funcs = Array.from(g.funcs.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+          return `
+            <details class="nc-pkg" data-pkg="${escapeHtml(pkg)}" ${i === 0 ? 'open' : ''}>
+              <summary>
+                <span class="pkg-name" title="${escapeHtml(pkg)}">${escapeHtml(shortPkg(pkg))}</span>
+                <span class="meta">${escapeHtml(g.version || '')}</span>
+                <span class="nc-count">${funcs.length}</span>
+              </summary>
+              <div class="nc-body">
                 ${funcs.map(([label, count]) => `
                   <div class="nc-func">
                     <span class="pill nonconsuming">non-consuming</span> ${escapeHtml(label)}
                     <span class="count">${count}×</span>
                   </div>`).join('')}
-              </div>`;
-          }).join('');
+              </div>
+            </details>`;
+        }).join('');
       }
-      return `<h2 style="font-size:13px;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 12px;">Non-consuming choices</h2>${body}`;
+      return `<h2 class="section-heading" style="margin-top: 32px;">Non-consuming choices</h2>${body}`;
     }
 
     // Section B: for each analyzed package, the distinct packages it interacts with (clickable).
@@ -660,7 +866,7 @@
       }).join('');
 
       return `
-        <h2 style="font-size:13px;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin:32px 0 12px;">Package dependencies</h2>
+        <h2 class="section-heading" style="margin-top: 32px;">Package dependencies</h2>
         <p class="hint" style="margin:0 0 8px;">Click a dependency to see every interaction between the two packages.</p>
         <table class="findings-table">
           <thead><tr><th>Package</th><th>Interacts with</th></tr></thead>
@@ -685,29 +891,29 @@
       });
       const callers = Array.from(byCaller.keys()).sort();
 
-      document.getElementById('drilldown').innerHTML = `
-        <div class="jsonSection">
-          <h3 title="${escapeHtml(r.analyzedPackage.name)} → ${escapeHtml(depPackage)}">${escapeHtml(shortPkg(r.analyzedPackage.name))} <span class="meta">→ ${escapeHtml(shortPkg(depPackage))} · ${subset.length} interaction${subset.length === 1 ? '' : 's'}</span></h3>
-          <table class="findings-table">
-            <thead>
-              <tr><th>Caller</th>${typeCols.map(t => `<th>${escapeHtml(t)}</th>`).join('')}</tr>
-            </thead>
-            <tbody>
-              ${callers.map(caller => {
-                const row = byCaller.get(caller);
-                return `<tr>
-                  <td class="pkg-cell">${escapeHtml(caller)}</td>
-                  ${typeCols.map(t => {
-                    const set = row.get(t);
-                    return set
-                      ? `<td class="targets">${Array.from(set).sort().map(escapeHtml).join('<br>')}</td>`
-                      : `<td class="targets empty">·</td>`;
-                  }).join('')}
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>`;
+      return `
+        <h3 title="${escapeHtml(r.analyzedPackage.name)} → ${escapeHtml(depPackage)}" class="drilldown-heading">
+          ${escapeHtml(shortPkg(r.analyzedPackage.name))} <span class="meta">→ ${escapeHtml(shortPkg(depPackage))} · ${subset.length} interaction${subset.length === 1 ? '' : 's'}</span>
+        </h3>
+        <table class="findings-table">
+          <thead>
+            <tr><th>Caller</th>${typeCols.map(t => `<th>${escapeHtml(t)}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${callers.map(caller => {
+              const row = byCaller.get(caller);
+              return `<tr>
+                <td class="pkg-cell">${escapeHtml(caller)}</td>
+                ${typeCols.map(t => {
+                  const set = row.get(t);
+                  return set
+                    ? `<td class="targets">${Array.from(set).sort().map(escapeHtml).join('<br>')}</td>`
+                    : `<td class="targets empty">·</td>`;
+                }).join('')}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
     }
 
     // ============================== graph tab ==============================
@@ -790,13 +996,13 @@
             'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center', 'font-size': 12,
             'padding': '8px', 'width': 'label', 'height': 'label', 'color': '#333'
         }},
-        { selector: 'node[analyzed="true"]', style: { 'background-color': '#e3f2fd', 'border-color': '#1976d2', 'border-width': 2 } },
+        { selector: 'node[analyzed="true"]', style: { 'background-color': '#f6e2dd', 'border-color': '#b3331c', 'border-width': 2 } },
         { selector: 'edge', style: {
             'width': 1.5, 'line-color': '#888', 'target-arrow-color': '#888', 'target-arrow-shape': 'triangle',
             'curve-style': 'bezier', 'label': 'data(label)', 'font-size': 11, 'color': '#555',
             'text-background-color': '#fff', 'text-background-opacity': 0.9, 'text-background-padding': 2
         }},
-        { selector: 'edge[nc="true"]', style: { 'line-color': '#d32f2f', 'target-arrow-color': '#d32f2f', 'color': '#a33' } }
+        { selector: 'edge[nc="true"]', style: { 'line-color': '#b3331c', 'target-arrow-color': '#b3331c', 'color': '#7a2415' } }
       ];
     }
 
@@ -1055,18 +1261,18 @@
             'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center', 'font-size': 12,
             'padding': '8px', 'width': 'label', 'height': 'label', 'color': '#333'
         }},
-        { selector: 'node[role="center"]',   style: { 'background-color': '#e3f2fd', 'border-color': '#1976d2', 'border-width': 2 } },
-        { selector: 'node[role="new"]',      style: { 'border-color': '#2e9e4f', 'border-width': 2 } },
-        { selector: 'node[role="gone"]',     style: { 'border-color': '#d32f2f', 'border-width': 2, 'border-style': 'dashed', 'color': '#a33' } },
+        { selector: 'node[role="center"]',   style: { 'background-color': '#f6e2dd', 'border-color': '#b3331c', 'border-width': 2 } },
+        { selector: 'node[role="new"]',      style: { 'border-color': '#2f7a3a', 'border-width': 2 } },
+        { selector: 'node[role="gone"]',     style: { 'border-color': '#b3331c', 'border-width': 2, 'border-style': 'dashed', 'color': '#7a2415' } },
         { selector: 'edge', style: {
             'width': 2, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle',
             'label': 'data(label)', 'font-size': 11,
             'text-background-color': '#fff', 'text-background-opacity': 0.9, 'text-background-padding': 2,
             'line-color': '#bbb', 'target-arrow-color': '#bbb', 'color': '#888'
         }},
-        { selector: 'edge[status="added"]',   style: { 'line-color': '#2e9e4f', 'target-arrow-color': '#2e9e4f', 'color': '#2e7d40', 'width': 3 } },
-        { selector: 'edge[status="removed"]', style: { 'line-color': '#d32f2f', 'target-arrow-color': '#d32f2f', 'color': '#a33', 'line-style': 'dashed', 'width': 3 } },
-        { selector: 'edge[status="changed"]', style: { 'line-color': '#f9a825', 'target-arrow-color': '#f9a825', 'color': '#a07000', 'width': 3 } }
+        { selector: 'edge[status="added"]',   style: { 'line-color': '#2f7a3a', 'target-arrow-color': '#2f7a3a', 'color': '#2f7a3a', 'width': 3 } },
+        { selector: 'edge[status="removed"]', style: { 'line-color': '#b3331c', 'target-arrow-color': '#b3331c', 'color': '#7a2415', 'line-style': 'dashed', 'width': 3 } },
+        { selector: 'edge[status="changed"]', style: { 'line-color': '#a07000', 'target-arrow-color': '#a07000', 'color': '#a07000', 'width': 3 } }
       ];
     }
 
@@ -1098,34 +1304,79 @@
     }
 
     // ============================== findings panel ==============================
+    // Build the caller string for a finding. Used both as a group key and (when ungrouped)
+    // for inline display.
+    function callerKey(f) {
+      return `${f.caller.module}.${f.caller.template || f.caller.interface || '?'}${f.caller.choice ? '.' + f.caller.choice : ''}`;
+    }
+    function targetText(f) {
+      return `${f.target.module}.${f.target.template || f.target.interface || '?'}${f.target.choice ? '.' + f.target.choice : ''}`;
+    }
+    function srcLine(f) {
+      if (!f.source) return '';
+      const line = f.source.startLine   ? ':' + f.source.startLine   : '';
+      const col  = f.source.startColumn ? ':' + f.source.startColumn : '';
+      return `<div class="src">${escapeHtml(f.source.file)}${line}${col}</div>`;
+    }
+    // Render a single finding row. `omitCaller` is true when the row sits inside a caller
+    // group whose header already shows the caller (avoid repeating the same prefix N times).
+    function renderFinding(f, omitCaller) {
+      const callerPart = omitCaller ? '' :
+        `<span class="caller">${escapeHtml(callerKey(f))}</span><span class="arrow">→</span>`;
+      return `
+        <div class="finding">
+          <div>${callerPart}<span class="target">${escapeHtml(targetText(f))}</span></div>
+          <div>
+            <span class="pill">${escapeHtml(f.type)}</span>
+            ${f.target.consuming === false ? '<span class="pill nonconsuming">non-consuming</span>' : ''}
+          </div>
+          ${srcLine(f)}
+        </div>`;
+    }
+
     function showFindings(findings, title) {
       const count = findings.length;
+
+      // Group findings by caller. When there's only one caller, render flat (no point in
+      // a single collapsible). When there are several, render one <details> per caller,
+      // sorted by descending size; the largest group opens by default.
+      const groups = new Map();
+      findings.forEach(f => {
+        const k = callerKey(f);
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(f);
+      });
+      const sorted = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
+
+      const body = sorted.length <= 1
+        ? findings.map(f => renderFinding(f, false)).join('')
+        : sorted.map(([caller, fs], i) => `
+            <details class="caller-group" ${i === 0 ? 'open' : ''}>
+              <summary>
+                <span class="caller-name">${escapeHtml(caller)}</span>
+                <span class="caller-count">${fs.length}</span>
+              </summary>
+              <div class="caller-body">${fs.map(f => renderFinding(f, true)).join('')}</div>
+            </details>
+          `).join('');
+
+      const header = sorted.length <= 1
+        ? `<strong>${count}</strong> finding${count === 1 ? '' : 's'}`
+        : `<strong>${count}</strong> finding${count === 1 ? '' : 's'} across <strong>${sorted.length}</strong> caller${sorted.length === 1 ? '' : 's'} — click a caller to expand`;
+
       document.getElementById('details').innerHTML = `
         <h2>${escapeHtml(title)}</h2>
-        <p class="hint" style="margin: 4px 0 8px;"><strong>${count}</strong> finding${count === 1 ? '' : 's'}</p>
+        <p class="hint" style="margin: 4px 0 8px;">${header}</p>
         <details class="finding-key">
           <summary>How to read each finding below</summary>
           <ul>
-            <li><span class="label">caller</span> <code>Module.Template.Choice</code> in the analyzed DAR</li>
+            <li><span class="label">caller</span> <code>Module.Template.Choice</code> in the analyzed DAR (shown as the group header when there are several)</li>
             <li><span class="label">→ target</span> <code>Module.Template[.Choice]</code> in another package</li>
             <li><span class="label">tags</span> interaction type, plus <span class="pill nonconsuming" style="font-size:10px;">non-consuming</span> when applicable</li>
             <li><span class="label">source</span> <code>file:line:col</code> in the caller's Daml file</li>
           </ul>
         </details>
-        ${findings.map(f => `
-          <div class="finding">
-            <div>
-              <span class="caller">${escapeHtml(f.caller.module)}.${escapeHtml(f.caller.template || f.caller.interface || '?')}${f.caller.choice ? '.' + escapeHtml(f.caller.choice) : ''}</span>
-              <span class="arrow">→</span>
-              <span class="target">${escapeHtml(f.target.module)}.${escapeHtml(f.target.template || f.target.interface || '?')}${f.target.choice ? '.' + escapeHtml(f.target.choice) : ''}</span>
-            </div>
-            <div>
-              <span class="pill">${escapeHtml(f.type)}</span>
-              ${f.target.consuming === false ? '<span class="pill nonconsuming">non-consuming</span>' : ''}
-            </div>
-            ${f.source ? `<div class="src">${escapeHtml(f.source.file)}${f.source.startLine ? ':' + f.source.startLine : ''}${f.source.startColumn ? ':' + f.source.startColumn : ''}</div>` : ''}
-          </div>
-        `).join('')}
+        ${body}
       `;
     }
 
