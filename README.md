@@ -4,6 +4,12 @@
 
 A Static analysis tool for inspecting cross-package interactions in compiled Daml packages (`.dar` files).
 
+<p align="center">
+  <img src="docs/screenshots/daml1.png" alt="Highlights tab showing an overview of all interactions and choices." width="900">
+  <br>
+  <em>Highlights tab — overview stats, flagged non-consuming choices, and per-package dependencies across the analyzed corpus.</em>
+</p>
+
 ## What it does
 
 Given a compiled Daml package, daml-analyzer reports all **cross-package interaction** the code performs against contracts or interfaces defined in other packages — `Create`, `Exercise`, `Fetch`, `ExerciseInterface`, `ImplementsInterface`, and so on.
@@ -71,6 +77,19 @@ As a concrete example, run daml-analyzer on the Splice dar files [here](https://
 2. run `sbt assembly`
 3. run `sbt "run path/to/splice/dars -o path/to/out/dir"`
 4. open the `index.html` and upload the jsons from `path/to/out/dir`
+
+<p align="center">
+  <img src="docs/screenshots/daml2.png" alt="Summary table tab showing target packages and interaction-type counts with a row clicked to reveal the grouped findings panel" width="900">
+  <br>
+  <em>Summary table: rows are target packages, columns are interaction-type counts. Click a row to see findings grouped by the choice that triggered them.</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/daml3.png" alt="Diff tab showing a star graph of what changed between two versions of the same package, with green/red/amber/gray edges indicating added, removed, changed, and unchanged interactions" width="900">
+  <br>
+  <em>Diff tab: comparing two versions of the same package. Edges are <strong>green</strong> for added interactions, <strong>red dashed</strong> for removed, <strong>amber</strong> for changed, and gray for unchanged.</em>
+</p>
+
 
 **DOT → PNG with Graphviz**
 
