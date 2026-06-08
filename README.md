@@ -7,7 +7,7 @@ A Static analysis tool for inspecting cross-package interactions in compiled Dam
 <p align="center">
   <img src="docs/screenshots/daml1.png" alt="Highlights tab showing an overview of all interactions and choices." width="900">
   <br>
-  <em>Highlights tab — overview stats, flagged non-consuming choices, and per-package dependencies across the analyzed corpus.</em>
+  <em>Highlights tab showing an overview of all interactions and choices.</em>
 </p>
 
 ## What it does
