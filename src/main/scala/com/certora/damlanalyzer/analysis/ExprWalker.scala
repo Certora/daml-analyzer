@@ -104,8 +104,11 @@ object ExprWalker {
 
     case Ast.UpdateLedgerTimeLT(expr) => findInteractions(expr, currentLoc, ctx)
 
-    case Ast.UpdateTryCatch(_, body, _, catchE) =>
+    case Ast.UpdateTryCatchV1(_, body, _, catchE) =>
       findInteractions(body, currentLoc, ctx) ++ findInteractions(catchE, currentLoc, ctx)
+
+    // LF 2.3 and above adds this
+    case _: Ast.UpdateQueryNByKey => List((currentLoc, u))
 
     case _ => Nil
   }

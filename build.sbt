@@ -6,7 +6,7 @@ lazy val root = (project in file("."))
     scalaVersion := "2.13.16",
 
     libraryDependencies ++= Seq(
-      "com.daml" %% "daml-lf-archive-reader" % "3.4.11",
+      "com.daml" %% "daml-lf-archive" % "3.5.6",
       "org.slf4j" % "slf4j-nop" % "2.0.16",
       "com.github.scopt" %% "scopt" % "4.1.0",
       "io.circe" %% "circe-core" % "0.14.10",

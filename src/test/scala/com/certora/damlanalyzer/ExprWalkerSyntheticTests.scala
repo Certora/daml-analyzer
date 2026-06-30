@@ -9,9 +9,8 @@ import org.scalatest.funsuite.AnyFunSuite
 class ExprWalkerSyntheticTests extends AnyFunSuite {
 
   private val pkgId   = Ref.PackageId.assertFromString("a" * 64)
-  private val modName = Ref.DottedName.assertFromString("MyMod")
-  private val tplName = Ref.DottedName.assertFromString("MyTpl")
-  private val tcid    = Ref.TypeConId(pkgId, Ref.QualifiedName(modName, tplName))
+  private val qn      = Ref.QualifiedName.assertFromString("MyMod:MyTpl")
+  private val tcid    = Ref.TypeConId(pkgId, qn)
 
   private val placeholderExpr: Ast.Expr =
     Ast.EVar(Ref.Name.assertFromString("placeholder"))

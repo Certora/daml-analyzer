@@ -12,5 +12,6 @@ object InteractionType {
   case object FetchInterface      extends InteractionType
   case object FetchByKey          extends InteractionType
   case object LookupByKey         extends InteractionType
+  case object QueryNByKey         extends InteractionType
   case object ImplementsInterface extends InteractionType
 }

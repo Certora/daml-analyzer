@@ -137,6 +137,7 @@ object CrossPackageAnalyzer {
     case Ast.UpdateFetchInterface(tcid, _)             => Some(tcid)
     case Ast.UpdateFetchByKey(tcid)                    => Some(tcid)
     case Ast.UpdateLookupByKey(tcid)                   => Some(tcid)
+    case Ast.UpdateQueryNByKey(tcid)                   => Some(tcid)
     case _                                             => None
   }
 
@@ -150,6 +151,7 @@ object CrossPackageAnalyzer {
     case _: Ast.UpdateFetchInterface    => Some(InteractionType.FetchInterface)
     case _: Ast.UpdateFetchByKey        => Some(InteractionType.FetchByKey)
     case _: Ast.UpdateLookupByKey       => Some(InteractionType.LookupByKey)
+    case _: Ast.UpdateQueryNByKey       => Some(InteractionType.QueryNByKey)
     case _                              => None
   }
 
