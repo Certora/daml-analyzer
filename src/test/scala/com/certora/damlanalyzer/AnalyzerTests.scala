@@ -143,4 +143,30 @@ class AnalyzerTests extends AnyFunSuite {
     assert(result.summary.totalInteractions == 0,
       s"self-contained so expected zero findings but got ${result.summary.totalInteractions}")
   }
+
+  // when an INTERFACE choice's body makes a cross-package call,
+  // the caller must be reported with `interface` set and `template` empty
+  // pkg-iasset's IAsset.Settle exercises Credit on Account in pkg-account.
+  test("test9: cross package interface-choice caller is labeled with caller.interface, not caller.template") {
+    val result = loadAndAnalyze("/dars/pkg-iasset-1.0.0.dar")
+    assert(result.analyzedPackage.name == "pkg-iasset")
+
+    val finding = result.interactions
+      .find(i => i.interactionType == InteractionType.Exercise && i.target.template.contains("Account"))
+      .getOrElse(fail("expected an Exercise finding targeting Account"))
+
+    // interface-choice callers go in caller.interface, not caller.template.
+    assert(finding.caller.interface.contains("IAsset"),
+      s"caller.interface should be Some(\"IAsset\") but was ${finding.caller.interface}")
+    assert(finding.caller.template.isEmpty,
+      s"caller.template should be empty for an interface-choice caller but was ${finding.caller.template}")
+    assert(finding.caller.choice.contains("Settle"))
+    assert(finding.caller.module == "IAsset")
+
+    // sanity checks
+    assert(finding.target.pkg == "pkg-account")
+    assert(finding.target.template.contains("Account"))
+    assert(finding.target.choice.contains("Credit"))
+    assert(finding.target.consuming.contains(true))
+  }
 }

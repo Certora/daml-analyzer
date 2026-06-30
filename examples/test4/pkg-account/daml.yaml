@@ -1,0 +1,10 @@
+sdk-version: 3.4.11
+name: pkg-account
+version: 1.0.0
+source: daml
+parties: []
+modules:
+  - Account
+dependencies:
+  - daml-prim
+  - daml-stdlib

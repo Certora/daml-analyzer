@@ -1,0 +1,15 @@
+module Account where
+
+template Account
+  with
+    bank    : Party
+    owner   : Party
+    balance : Decimal
+  where
+    signatory bank
+    observer owner
+
+    choice Credit : ContractId Account
+      with amount : Decimal
+      controller bank
+      do create this with balance = balance + amount

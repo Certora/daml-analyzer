@@ -1,0 +1,19 @@
+module IAsset where
+
+import Account (Account, Credit (..))
+
+data AssetView = AssetView with issuer : Party
+
+interface IAsset where
+  viewtype AssetView
+
+  -- An INTERFACE choice whose body crosses packages.
+  -- it exercises Credit on an Account in pkg-account.
+  -- This is a case the analyzer should label with
+  -- caller.interface = "IAsset" and not caller.template.
+  nonconsuming choice Settle : ContractId Account
+    with
+      accountCid : ContractId Account
+      amount     : Decimal
+    controller (view this).issuer
+    do exercise accountCid Credit with amount
