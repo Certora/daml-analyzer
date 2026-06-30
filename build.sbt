@@ -13,6 +13,12 @@ lazy val root = (project in file("."))
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     ),
 
+    // Using larger JVM stack to avoid stack overflow.
+    run  / fork        := true,
+    Test / fork        := true,
+    run  / javaOptions += "-Xss4m",
+    Test / javaOptions += "-Xss4m",
+
     // `sbt assembly` configs, may need to fix later
     Compile / mainClass        := Some("com.certora.damlanalyzer.Main"),
     assembly / assemblyJarName := s"daml-analyzer-${version.value}.jar",

@@ -57,6 +57,8 @@ If you make the JAR file, run like so:
 java -jar target/scala-2.13/daml-analyzer-0.1.0-SNAPSHOT.jar foo.dar -o out/
 ```
 
+_NOTE:_ you can pass `-Xss4m` to the `java ...` command to increase the JVM thread stack. `sbt run` and `sbt test` already uses this flag (`build.sbt`).
+
 
 ## Visualize the results
 
