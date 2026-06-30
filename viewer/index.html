@@ -316,6 +316,15 @@
       font-weight: 500;
     }
     .pill.nonconsuming { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
+    /* Caller-version tag prefixing each row in graph / diff detail lists. When several
+       versions of the same package are loaded, the graph pools their findings into one
+       node/edge; this badge says which version each row actually came from. */
+    .caller-ver {
+      display: inline-block; padding: 1px 6px; margin-right: 6px;
+      background: var(--surface-2); color: var(--muted);
+      border-radius: var(--radius-sm); font-size: 10px;
+      font-family: ui-monospace, monospace; vertical-align: 1px;
+    }
     .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
 
     details.finding-key {
@@ -1037,7 +1046,13 @@
       const caller = `${i.caller.module}.${i.caller.template || i.caller.interface || '?'}${i.caller.choice ? '.' + i.caller.choice : ''}`;
       const tgt = `${shortPkg(i.target.package)}:${i.target.module}.${i.target.template || i.target.interface || '?'}${i.target.choice ? '.' + i.target.choice : ''}`;
       const nc = i.target.consuming === false ? ' <span class="pill nonconsuming" style="font-size:10px;">non-consuming</span>' : '';
-      return `<span class="pill">${escapeHtml(i.type)}</span> ${escapeHtml(caller)} <span class="arrow">→</span> ${escapeHtml(tgt)}${nc}`;
+      // Caller-version tag: when multiple versions of the same package are loaded, the graph
+      // aggregates them into one node/edge, so listing the version on each row is the only
+      // way to tell otherwise-identical findings apart.
+      const ver = i.caller.version
+        ? `<span class="caller-ver" title="caller package version">v${escapeHtml(i.caller.version)}</span> `
+        : '';
+      return `${ver}<span class="pill">${escapeHtml(i.type)}</span> ${escapeHtml(caller)} <span class="arrow">→</span> ${escapeHtml(tgt)}${nc}`;
     }
 
     // Main graph: clicking a package node summarizes its incoming / outgoing interactions.
