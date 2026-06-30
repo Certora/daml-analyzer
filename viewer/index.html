@@ -308,6 +308,9 @@
     .finding .arrow  { color: var(--muted); margin: 0 4px; }
     .finding .target { color: var(--ink-2); }
     .finding .src    { color: var(--muted); font-size: 12px; margin-top: 4px; font-family: ui-monospace, monospace; }
+    /* Highlight when the source file lives in a different package than the caller (rare,
+       happens when ExprWalker follows EVal across a package boundary). */
+    .finding .src .src-pkg { color: var(--accent); font-weight: 600; }
 
     .pill {
       display: inline-block; padding: 2px 8px;
@@ -1331,7 +1334,15 @@
       if (!f.source) return '';
       const line = f.source.startLine   ? ':' + f.source.startLine   : '';
       const col  = f.source.startColumn ? ':' + f.source.startColumn : '';
-      return `<div class="src">${escapeHtml(f.source.file)}${line}${col}</div>`;
+      // When the source file lives in a different package than the caller (the walker followed
+      // an EVal into a dependency), prefix with the source's package so the row is honest about
+      // where the .daml file actually lives. Same-package findings render identically to before.
+      const srcPkg = f.source.package;
+      const showPkg = srcPkg && srcPkg !== f.caller.package;
+      const prefix = showPkg
+        ? `<span class="src-pkg" title="source file lives in this package, not the caller's">${escapeHtml(srcPkg)}</span>/`
+        : '';
+      return `<div class="src">${prefix}${escapeHtml(f.source.file)}${line}${col}</div>`;
     }
     // Render a single finding row. `omitCaller` is true when the row sits inside a caller
     // group whose header already shows the caller (avoid repeating the same prefix N times).

@@ -9,9 +9,14 @@ case class AnalyzedPackage(
   lfVersion: String
 )
 
-// Line, column are optional. If we don't have ELocation for any reason,
+// Line, column are optional.
+// if we don't have ELocation for any reason,
 // we just show the `file` from the caller's module.
+// `pkg` is the package name the source file lives in.
+// NOTE: for findings discovered by
+// EVal-tracking into a dependency, this will differ from `caller.pkg`.
 case class SourceLocation(
+  pkg:         Option[String] = None,
   file:        String,
   startLine:   Option[Int] = None,
   startColumn: Option[Int] = None,

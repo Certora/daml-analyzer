@@ -36,6 +36,7 @@ object JsonReporter {
   private implicit val sourceLocationEncoder: Encoder[SourceLocation] =
     Encoder.instance { s =>
       Json.obj(
+        "package" -> s.pkg.asJson,
         "file" -> s.file.asJson,
         "startLine" -> s.startLine.asJson,
         "startColumn" -> s.startColumn.asJson,

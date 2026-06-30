@@ -54,7 +54,7 @@ object CrossPackageAnalyzer {
         val isIface   = isInterfaceTarget(f.update)
         CrossPackageInteraction(
           interactionType = iType,
-          source          = Some(f.loc.map(toSchemaLocation).getOrElse(fileOnlyLocation(f.module))),
+          source          = Some(f.loc.map(l => toSchemaLocation(l, pkgsById)).getOrElse(fileOnlyLocation(f.module, mainMeta.name.toString))),
           caller = Caller(
             pkg       = mainMeta.name.toString,
             version   = mainMeta.version.toString,
@@ -198,9 +198,14 @@ object CrossPackageAnalyzer {
     }
   }
 
-  // Convert a Daml-LF Ref.Location to our schema's SourceLocation.
-  private def toSchemaLocation(loc: Ref.Location): SourceLocation =
+  // converts a Daml-LF Ref.Location to our schema's SourceLocation.
+  // this will resolve loc.packageId to a package name so the JSON makes
+  // it visible when the source file lives in a different
+  // package than the caller.
+  // this can happen when ExprWalker follows EVal across package boundaries.
+  private def toSchemaLocation(loc: Ref.Location, pkgsById: Map[PackageId, Ast.Package]): SourceLocation =
     SourceLocation(
+      pkg         = pkgsById.get(loc.packageId).map(_.metadata.name.toString),
       file        = loc.module.toString + ".daml",
       startLine   = Some(loc.start._1 + 1),
       startColumn = Some(loc.start._2 + 1),
@@ -208,8 +213,11 @@ object CrossPackageAnalyzer {
       endColumn   = Some(loc.end._2 + 1)
     )
 
-  private def fileOnlyLocation(modName: String): SourceLocation =
-    SourceLocation(file = modName + ".daml")
+  // fallback when no ELocation was reachable.
+  // we default `pkg` to the caller's package, i.e., the analyzed package
+  // because that is the best we can do in this scenario.
+  private def fileOnlyLocation(modName: String, callerPkg: String): SourceLocation =
+    SourceLocation(pkg = Some(callerPkg), file = modName + ".daml")
 
   private def summaryOf(interactions: List[CrossPackageInteraction]): Summary = {
     val byType = interactions
