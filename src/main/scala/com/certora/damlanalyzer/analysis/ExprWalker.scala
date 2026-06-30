@@ -14,30 +14,44 @@ case class WalkCtx(
 
 object ExprWalker {
 
-  // TODO: still missing some Expr variants like ERecCon, EStructCon, EVariantCon, EThrow, ETryCatch, and stuff
   def findInteractions(e: Ast.Expr, currentLoc: Option[Ref.Location] = None, ctx: WalkCtx = WalkCtx()): List[(Option[Ref.Location], Ast.Update)] = e match {
     case Ast.EUpdate(u) => findInteractionsInUpdate(u, currentLoc, ctx)
-
     case Ast.ELocation(loc, body) => findInteractions(body, Some(loc), ctx)
+    case Ast.EAbs(_, body)                          => findInteractions(body, currentLoc, ctx)
+    case Ast.ETyAbs(_, body)                        => findInteractions(body, currentLoc, ctx)
+    case Ast.ETyApp(e2, _)                          => findInteractions(e2, currentLoc, ctx)
+    case Ast.ESome(_, body)                         => findInteractions(body, currentLoc, ctx)
+    case Ast.EToAny(_, body)                        => findInteractions(body, currentLoc, ctx)
+    case Ast.EFromAny(_, body)                      => findInteractions(body, currentLoc, ctx)
+    case Ast.EToAnyException(_, v)                  => findInteractions(v, currentLoc, ctx)
+    case Ast.EFromAnyException(_, v)                => findInteractions(v, currentLoc, ctx)
+    case Ast.EThrow(_, _, exc)                      => findInteractions(exc, currentLoc, ctx)
+    case Ast.EToInterface(_, _, v)                  => findInteractions(v, currentLoc, ctx)
+    case Ast.EFromInterface(_, _, v)                => findInteractions(v, currentLoc, ctx)
+    case Ast.EToRequiredInterface(_, _, body)       => findInteractions(body, currentLoc, ctx)
+    case Ast.EFromRequiredInterface(_, _, body)     => findInteractions(body, currentLoc, ctx)
+    case Ast.ESignatoryInterface(_, body)           => findInteractions(body, currentLoc, ctx)
+    case Ast.EObserverInterface(_, body)            => findInteractions(body, currentLoc, ctx)
+    case Ast.EViewInterface(_, expr2)               => findInteractions(expr2, currentLoc, ctx)
+    case Ast.EInterfaceTemplateTypeRep(_, body)     => findInteractions(body, currentLoc, ctx)
+    case Ast.ECallInterface(_, _, v)                => findInteractions(v, currentLoc, ctx)
+    case Ast.ERecProj(_, _, record)                 => findInteractions(record, currentLoc, ctx)
+    case Ast.EStructProj(_, struct)                 => findInteractions(struct, currentLoc, ctx)
+    case Ast.EVariantCon(_, _, arg)                 => findInteractions(arg, currentLoc, ctx)
 
-    case Ast.EAbs(_, body)     => findInteractions(body, currentLoc, ctx)
-    case Ast.ETyAbs(_, body)   => findInteractions(body, currentLoc, ctx)
-    case Ast.ETyApp(e2, _)     => findInteractions(e2, currentLoc, ctx)
-    case Ast.ESome(_, body)    => findInteractions(body, currentLoc, ctx)
-    case Ast.EToAny(_, body)   => findInteractions(body, currentLoc, ctx)
-    case Ast.EFromAny(_, body) => findInteractions(body, currentLoc, ctx)
+    case Ast.EApp(fn, arg) => findInteractions(fn, currentLoc, ctx) ++ findInteractions(arg, currentLoc, ctx)
+    case Ast.ELet(binding, body) => findInteractions(binding.bound, currentLoc, ctx) ++ findInteractions(body, currentLoc, ctx)
+    case Ast.ERecUpd(_, _, record, upd) => findInteractions(record, currentLoc, ctx) ++ findInteractions(upd, currentLoc, ctx)
+    case Ast.EStructUpd(_, struct, upd) => findInteractions(struct, currentLoc, ctx) ++ findInteractions(upd, currentLoc, ctx)
+    case Ast.EUnsafeFromInterface(_, _, cidE, ifaceE) => findInteractions(cidE, currentLoc, ctx) ++ findInteractions(ifaceE, currentLoc, ctx)
+    case Ast.EUnsafeFromRequiredInterface(_, _, cidE, ifaceE) => findInteractions(cidE, currentLoc, ctx) ++ findInteractions(ifaceE, currentLoc, ctx)
+    case Ast.EChoiceController(_, _, contractE, argE) => findInteractions(contractE, currentLoc, ctx) ++ findInteractions(argE, currentLoc, ctx)
+    case Ast.EChoiceObserver(_, _, contractE, argE) => findInteractions(contractE, currentLoc, ctx) ++ findInteractions(argE, currentLoc, ctx)
 
-    case Ast.EApp(fn, arg) =>
-      findInteractions(fn, currentLoc, ctx) ++ findInteractions(arg, currentLoc, ctx)
-
-    case Ast.ELet(binding, body) =>
-      findInteractions(binding.bound, currentLoc, ctx) ++ findInteractions(body, currentLoc, ctx)
-
-    case Ast.ECase(scrut, alts) =>
-      findInteractions(scrut, currentLoc, ctx) ++ alts.toList.flatMap(a => findInteractions(a.expr, currentLoc, ctx))
-
-    case Ast.ECons(_, front, tail) =>
-      front.toList.flatMap(e2 => findInteractions(e2, currentLoc, ctx)) ++ findInteractions(tail, currentLoc, ctx)
+    case Ast.ECase(scrut, alts) => findInteractions(scrut, currentLoc, ctx) ++ alts.toList.flatMap(a => findInteractions(a.expr, currentLoc, ctx))
+    case Ast.ECons(_, front, tail) => front.toList.flatMap(e2 => findInteractions(e2, currentLoc, ctx)) ++ findInteractions(tail, currentLoc, ctx)
+    case Ast.ERecCon(_, fields) => fields.toList.flatMap { case (_, fe) => findInteractions(fe, currentLoc, ctx) }
+    case Ast.EStructCon(fields) => fields.toList.flatMap { case (_, fe) => findInteractions(fe, currentLoc, ctx) }
 
     // Inspect EVals to track function references.
     // NOTE: maybe eventually we need k-CFA or something?
