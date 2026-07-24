@@ -35,10 +35,6 @@ Then:
 
 ```bash
 dpm install package
-
-# one-time: OCI archives strip the executable bit
-chmod +x ~/.dpm/cache/components/*/daml-analyzer/*/bin/daml-analyzer.sh
-
 dpm certora-analyze foo.dar -o out/
 ```
 
