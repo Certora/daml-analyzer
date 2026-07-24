@@ -56,6 +56,7 @@ jobs:
 
       - name: Publish component to GHCR
         run: |
+          OWNER="${{ github.repository_owner }}"
           dpm publish component \
-            "oci://ghcr.io/${{ github.repository_owner }}/daml-analyzer:${{ steps.version.outputs.value }}" \
+            "oci://ghcr.io/${OWNER,,}/daml-analyzer:${{ steps.version.outputs.value }}" \
             --platform generic="./dpm-component"
