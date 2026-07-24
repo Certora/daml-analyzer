@@ -9,10 +9,11 @@ dpm-component/
 ├── component.yaml        # declares the `certora-analyze` subcommand
 ├── daml.yaml             # stub required by dpm publish
 ├── LICENSE               # required at component root by dpm publish
+├── NOTICE                # attribution
 ├── bin/
 │   └── daml-analyzer.sh  # exec java -Xss4m -jar lib/daml-analyzer.jar "$@"
 └── lib/
-    └── daml-analyzer.jar # populated by scripts/build-dpm-component.sh; gitignored
+    └── daml-analyzer.jar # populated by scripts/build-dpm-component.sh
 ```
 
 ## For users
