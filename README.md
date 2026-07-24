@@ -38,6 +38,12 @@ sbt assembly # makes jar
 
 ## Run
 
+There are 3 ways to run the tool:
+
+1. **`dpm certora-analyze foo.dar -o out/`** — once the tool is installed as a DPM component. This is recommended for Canton/Daml users who already have DPM 3.5+. See [dpm-component/README.md](dpm-component/README.md) for more.
+2. **`java -Xss4m -jar target/scala-2.13/daml-analyzer-<version>.jar foo.dar -o out/`** — for anyone who wants to run the jar directly
+3. **`sbt "run foo.dar -o out/"`** — for developing on this repo.
+
 See the various ways to run below. You can either run `sbt "run ..."` or `java -jar ...`.
 
 | Command | Output |
@@ -54,7 +60,7 @@ See the various ways to run below. You can either run `sbt "run ..."` or `java -
 If you make the JAR file, run like so:
 
 ```bash
-java -jar target/scala-2.13/daml-analyzer-0.1.0-SNAPSHOT.jar foo.dar -o out/
+java -jar target/scala-2.13/daml-analyzer-0.1.0.jar foo.dar -o out/
 ```
 
 _NOTE:_ you can pass `-Xss4m` to the `java ...` command to increase the JVM thread stack. `sbt run` and `sbt test` already uses this flag (`build.sbt`).

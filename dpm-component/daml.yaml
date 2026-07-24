@@ -1,0 +1,6 @@
+name: daml-analyzer
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-prim
+  - daml-stdlib

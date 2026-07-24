@@ -1,0 +1,7 @@
+apiVersion: digitalasset.com/v1
+kind: Component
+spec:
+  commands:
+    - path: bin/daml-analyzer.sh
+      name: certora-analyze
+      desc: "Detect cross-package interactions in compiled DAML packages in dar form"

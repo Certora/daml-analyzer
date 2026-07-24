@@ -2,7 +2,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "daml-analyzer",
     organization := "com.certora",
-    version := "0.1.0-SNAPSHOT",
+    version := "0.1.0",
     scalaVersion := "2.13.16",
 
     libraryDependencies ++= Seq(
