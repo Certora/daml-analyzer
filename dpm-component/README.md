@@ -28,7 +28,7 @@ dependencies:
   - daml-prim
   - daml-stdlib
 components:
-  - oci://ghcr.io/certora/daml-analyzer:0.1.0
+  - oci://ghcr.io/certora/daml-analyzer:0.1.1
 ```
 
 Then:
@@ -49,11 +49,11 @@ Requires DPM 3.5+ (`dpm install 3.5.1` or later) and a GHCR token with `write:pa
 ./scripts/build-dpm-component.sh
 
 # 2. Sanity check the archive locally
-dpm publish component oci://ghcr.io/certora/daml-analyzer:0.1.0 --platform generic="./dpm-component" --dry-run
+dpm publish component oci://ghcr.io/certora/daml-analyzer:0.1.1 --platform generic="./dpm-component" --dry-run
 
 # 3. Push to GHCR, this needs PAT with write:packages
 echo <PAT> | docker login ghcr.io -u <your-gh-user> --password-stdin
-dpm publish component oci://ghcr.io/certora/daml-analyzer:0.1.0 --platform generic="./dpm-component"
+dpm publish component oci://ghcr.io/certora/daml-analyzer:0.1.1 --platform generic="./dpm-component"
 ```
 
 After the first push, change the package visibility to public in GitHub -> org -> Packages.

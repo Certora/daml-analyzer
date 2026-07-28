@@ -17,7 +17,7 @@ object CliConfig {
 
     OParser.sequence(
       programName("daml-analyzer"),
-      head("daml-analyzer", "0.1.0"),
+      head("daml-analyzer", "0.1.1"),
 
       arg[File]("<dar-file-or-dir>")
         .required()
