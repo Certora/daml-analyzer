@@ -1,7 +1,7 @@
 package com.certora.damlanalyzer
 
 import com.certora.damlanalyzer.analysis.CrossPackageAnalyzer
-import com.certora.damlanalyzer.cli.CliConfig
+import com.certora.damlanalyzer.cli.{CliConfig, OutputFormat}
 import com.certora.damlanalyzer.output.{DotReporter, HtmlReporter, JsonReporter}
 import com.certora.damlanalyzer.parse.DarLoader
 import com.certora.damlanalyzer.schema.AnalysisResult
@@ -35,13 +35,7 @@ object Main {
       }
     }
 
-    val fmts: Set[String] = config.format match {
-      case "json" => Set("json")
-      case "dot"  => Set("dot")
-      case "html" => Set("html")
-      case "both" => Set("json", "dot")
-      case "all"  => Set("json", "dot", "html")
-    }
+    val fmt = config.format
 
     var failed = 0
     val results = mutable.ListBuffer[AnalysisResult]()
@@ -52,16 +46,19 @@ object Main {
           val stem   = dar.getName.stripSuffix(".dar")
           config.outputDir match {
             case Some(dir) =>
-              if (fmts("json")) writeFile(new File(dir, s"$stem.json"), JsonReporter.render(result))
-              if (fmts("dot"))  writeFile(new File(dir, s"$stem.dot"),  DotReporter.render(result))
-              if (fmts("html") && dars.size == 1)
+              if (fmt.emits(OutputFormat.Json)) writeFile(new File(dir, s"$stem.json"), JsonReporter.render(result))
+              if (fmt.emits(OutputFormat.Dot))  writeFile(new File(dir, s"$stem.dot"),  DotReporter.render(result))
+              if (fmt.emits(OutputFormat.Html) && dars.sizeIs == 1)
                 writeFile(new File(dir, s"$stem.html"), HtmlReporter.render(Seq(result)))
               results += result
             case None =>
-              val out = config.format match {
-                case "dot"  => DotReporter.render(result)
-                case "html" => HtmlReporter.render(Seq(result))
-                case _      => JsonReporter.render(result)
+              val out = fmt match {
+                case s: OutputFormat.Single => s match {
+                  case OutputFormat.Dot  => DotReporter.render(result)
+                  case OutputFormat.Html => HtmlReporter.render(Seq(result))
+                  case OutputFormat.Json => JsonReporter.render(result)
+                }
+                case OutputFormat.All => sys.error("unreachable: -f all requires -o (CliConfig should have caught this)")
               }
               println(out)
           }
@@ -72,7 +69,7 @@ object Main {
     }
 
     config.outputDir.foreach { dir =>
-      if (fmts("html") && dars.size > 1 && results.nonEmpty) {
+      if (fmt.emits(OutputFormat.Html) && dars.sizeIs > 1 && results.nonEmpty) {
         writeFile(new File(dir, "report.html"), HtmlReporter.render(results.toSeq))
       }
     }

@@ -60,7 +60,7 @@ See the various ways to run below. You can either run `sbt "run ..."` or `java -
 If you make the JAR file, run like so:
 
 ```bash
-java -jar target/scala-2.13/daml-analyzer-0.1.2.jar foo.dar -o out/
+java -jar target/scala-2.13/daml-analyzer-0.1.3.jar foo.dar -o out/
 ```
 
 _NOTE:_ you can pass `-Xss4m` to the `java ...` command to increase the JVM thread stack. `sbt run` and `sbt test` already uses this flag (`build.sbt`).

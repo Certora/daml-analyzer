@@ -1,9 +1,13 @@
 lazy val root = (project in file("."))
+  .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "daml-analyzer",
     organization := "com.certora",
-    version := "0.1.2",
+    version := "0.1.3",
     scalaVersion := "2.13.16",
+
+    buildInfoKeys    := Seq[BuildInfoKey](name, version),
+    buildInfoPackage := "com.certora.damlanalyzer",
 
     libraryDependencies ++= Seq(
       "com.daml" %% "daml-lf-archive" % "3.5.6",

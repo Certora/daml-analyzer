@@ -28,7 +28,7 @@ dependencies:
   - daml-prim
   - daml-stdlib
 components:
-  - oci://ghcr.io/certora/daml-analyzer:0.1.2
+  - oci://ghcr.io/certora/daml-analyzer:0.1.3
 ```
 
 Then:
