@@ -2,7 +2,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "daml-analyzer",
     organization := "com.certora",
-    version := "0.1.1",
+    version := "0.1.2",
     scalaVersion := "2.13.16",
 
     libraryDependencies ++= Seq(
@@ -10,6 +10,7 @@ lazy val root = (project in file("."))
       "org.slf4j" % "slf4j-nop" % "2.0.16",
       "com.github.scopt" %% "scopt" % "4.1.0",
       "io.circe" %% "circe-core" % "0.14.10",
+      "io.circe" %% "circe-parser" % "0.14.10" % Test,
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     ),
 

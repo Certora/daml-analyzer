@@ -28,7 +28,7 @@ dependencies:
   - daml-prim
   - daml-stdlib
 components:
-  - oci://ghcr.io/certora/daml-analyzer:0.1.1
+  - oci://ghcr.io/certora/daml-analyzer:0.1.2
 ```
 
 Then:
@@ -36,24 +36,18 @@ Then:
 ```bash
 dpm install package
 dpm certora-analyze foo.dar -o out/
+open out/foo.html
 ```
 
-Load `out/foo.json` into [`viewer/index.html`](../viewer/index.html) to browse findings.
+`out/` also contains `foo.json` and `foo.dot`. The batch mode, i.e., `dpm certora-analyze dars-dir/ -o out/`, generates a `.json` and `.dot` for each DAR, and one `out/report.html` for all DARs.
 
 ## For maintainers: build + publish
 
-Requires DPM 3.5+ (`dpm install 3.5.1` or later) and a GHCR token with `write:packages` scope on the target org.
+Tagged releases are published automatically: push a `v<version>` tag and [`.github/workflows/publish-component.yml`](../.github/workflows/publish-component.yml) builds the fat JAR and pushes `oci://ghcr.io/certora/daml-analyzer:<version>` using the workflow's GHCR credentials.
+
+To sanity-check the archive locally before tagging, requires DPM 3.5+ (`dpm install 3.5.1` or later):
 
 ```bash
-# 1. Assemble the JAR into dpm-component/lib/
-./scripts/build-dpm-component.sh
-
-# 2. Sanity check the archive locally
-dpm publish component oci://ghcr.io/certora/daml-analyzer:0.1.1 --platform generic="./dpm-component" --dry-run
-
-# 3. Push to GHCR, this needs PAT with write:packages
-echo <PAT> | docker login ghcr.io -u <your-gh-user> --password-stdin
-dpm publish component oci://ghcr.io/certora/daml-analyzer:0.1.1 --platform generic="./dpm-component"
+./scripts/build-dpm-component.sh   # assembles the fat JAR into dpm-component/lib/
+dpm publish component oci://ghcr.io/certora/daml-analyzer:<version> --platform generic="./dpm-component" --dry-run
 ```
-
-After the first push, change the package visibility to public in GitHub -> org -> Packages.

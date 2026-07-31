@@ -6,12 +6,26 @@ Browser-based summary table for the analyzer's JSON output.
 
 ## Usage
 
+There are two ways to view analyzer results:
+
+**1. Open a self-contained HTML report** (recommended, no upload step)
+
+Run the analyzer with `-o out/`. It generates a `out/<name>.html` for a single DAR, or `out/report.html` for all DARs in batch mode. Just:
+
+```bash
+open out/foo.html          # for a single DAR
+open out/report.html       # batch mode aggregating all DARs
+```
+
+The HTML reports have the JSON payload embedded.
+
+**2. Open this viewer and upload JSON(s) manually**
+
 ```bash
 open viewer/index.html
 ```
 
-Pick one or more `.json` files from running the tool.
-Multi-select is supported, you can upload more than one json at a time.
+Pick one or more `.json` files from an `out/` dir. You can select more than one. Note: `viewer/index.html` is a symlink to `src/main/resources/viewer/index.html`, which is bundled with the JAR and reused by mode (1).
 
 ## What it shows
 There are 4 tabs.

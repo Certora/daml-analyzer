@@ -5,7 +5,7 @@ import java.io.File
 
 case class CliConfig(
     input: File = new File("."),
-    format: String = "both", // default
+    format: String = "all", // default when -o is set: json + dot + html
     outputDir: Option[File] = None
 )
 
@@ -17,7 +17,7 @@ object CliConfig {
 
     OParser.sequence(
       programName("daml-analyzer"),
-      head("daml-analyzer", "0.1.1"),
+      head("daml-analyzer", "0.1.2"),
 
       arg[File]("<dar-file-or-dir>")
         .required()
@@ -27,13 +27,13 @@ object CliConfig {
         ),
 
       opt[String]('f', "format")
-        .valueName("json|dot|both")
+        .valueName("json|dot|html|all")
         .validate {
-          case "json" | "dot" | "both" => Right(())
-          case other                   => Left(s"unknown format: $other (expected 'json', 'dot', or 'both')")
+          case "json" | "dot" | "html" | "all" | "both" => Right(())
+          case other => Left(s"unknown format: $other (expected 'json', 'dot', 'html', or 'all')")
         }
         .action((s, c) => c.copy(format = s))
-        .text("Output format: 'both' (default when -o is set), 'json', or 'dot'. Stdout only allows one of 'json' or 'dot'."),
+        .text("Output format: 'all' (json+dot+html, default when -o is set), 'json', 'dot', or 'html'. Stdout only allows one of 'json', 'dot', or 'html'."),
 
       opt[File]('o', "output")
         .valueName("<dir>")
@@ -45,8 +45,8 @@ object CliConfig {
       checkConfig { c =>
         if (c.input.isDirectory && c.outputDir.isEmpty) {
           Left("batch mode requires -o <dir>")
-        } else if (c.outputDir.isEmpty && c.format == "both") {
-          Left("stdout dump must be run with either -f json or -f dot")
+        } else if (c.outputDir.isEmpty && (c.format == "both" || c.format == "all")) {
+          Left("stdout dump must be run with -f json, -f dot, or -f html")
         } else {
           Right(())
         }

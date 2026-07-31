@@ -7,9 +7,13 @@ import io.circe.syntax._
 // Renders an AnalysisResult as JSON.
 object JsonReporter {
 
-  private val printer = Printer.spaces2.copy(dropNullValues = true, colonLeft = "")
+  private val printer        = Printer.spaces2.copy(dropNullValues = true, colonLeft = "")
+  private val compactPrinter = Printer.noSpaces.copy(dropNullValues = true)
 
   def render(result: AnalysisResult): String = printer.print(result.asJson)
+
+  def renderArrayCompact(results: Seq[AnalysisResult]): String =
+    compactPrinter.print(Json.arr(results.map(_.asJson): _*))
 
   private implicit val packageRefEncoder: Encoder[PackageRef] =
     Encoder.instance { d =>
